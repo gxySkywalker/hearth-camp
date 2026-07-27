@@ -38,13 +38,14 @@ describe('angel AI runtime', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('sends the complete frozen fact envelope to DeepSeek', async () => {
+  it('upgrades the retired DeepSeek model alias before sending the frozen fact envelope', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '我已经收好。' } }] }) })
     const result = await generateAngelNarrative({ letter, apiKey: 'key', prompt, fetchImpl, settings: { api_provider: 'deepseek', model: 'deepseek-chat' } })
-    expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-chat' })
+    expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-v4-flash' })
     expect(fetchImpl).toHaveBeenCalledWith('https://api.deepseek.com/v1/chat/completions', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer key' }) }))
     const system = JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content
-    for (const key of ['period', 'stats', 'journey', 'observatory', 'chronicle', 'worldState']) expect(system).toContain(`\"${key}\"`)
+    for (const key of ['period', 'stats', 'journey', 'observatory', 'chronicle']) expect(system).toContain(`\"${key}\"`)
+    expect(system).not.toContain('postOfficeDetail')
   })
 
   it('isolates AI narrative facts from database schema and internal direction fields', () => {
@@ -53,7 +54,7 @@ describe('angel AI runtime', () => {
     expect(envelope.journey.completedTasks).toEqual(['整理旧笔记'])
     expect(envelope.stats.departures).toBe(3)
     const payload = JSON.stringify(envelope)
-    for (const forbidden of ['通用学习', 'system_default', 'schemaVersion', 'internalName', 'area-1', 'task-1', 'node-1', 'timezoneName']) {
+    for (const forbidden of ['通用学习', 'system_default', 'schemaVersion', 'internalName', 'area-1', 'task-1', 'node-1', 'timezoneName', '艾达', '窗框']) {
       expect(payload).not.toContain(forbidden)
     }
   })
@@ -98,13 +99,13 @@ describe('angel AI runtime', () => {
 
   it('uses a provider default URL instead of a stale custom endpoint', () => {
     expect(resolveAngelAiConfig({ api_provider: 'deepseek', model: 'deepseek-chat', ai_base_url: 'https://old-proxy.example/v1' }))
-      .toMatchObject({ provider: 'deepseek', model: 'deepseek-chat', baseUrl: 'https://api.deepseek.com/v1' })
+      .toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash', baseUrl: 'https://api.deepseek.com/v1' })
   })
 
   it.each(['daily', 'weekly'])('can polish each eligible %s letter with the configured provider', async (letterType) => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '小天使已经记下这段旅途。' } }] }) })
     const result = await generateAngelNarrative({ letter: { ...letter, letter_type: letterType }, apiKey: 'key', prompt, fetchImpl, settings: { api_provider: 'deepseek', model: 'deepseek-chat' } })
-    expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-chat' })
+    expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-v4-flash' })
   })
 
   it('keeps template fallback states for an invalid key, quota limit, and timeout', async () => {

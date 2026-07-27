@@ -172,7 +172,7 @@ export function GrowthPage() {
           <div><small>生活习惯</small><strong>{selected.personalityProfile.habit}</strong></div>
           <div><small>小毛病</small><strong>{selected.personalityProfile.quirk}</strong></div>
         </div>
-        <p>这些在相遇时便被悄悄记下，不会让它变强或变弱；它们只会出现在你们的交谈、编年史和共同记忆里。</p>
+          <p>这些在相遇时便被悄悄记下，不会让它变强或变弱；它们只会出现在你们的交谈、冒险日志和共同记忆里。</p>
       </article>
 
       <article className="parchment-card camp-v2-growth">

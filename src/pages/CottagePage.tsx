@@ -1,10 +1,17 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PageId } from '../types'
 import { useApp } from '../context/AppContext'
 import { formatDuration } from '../lib/format'
 import { CottageScene, type CottageAction } from '../components/CottageScene'
 import { Icon } from '../components/Icon'
 import { startFocus } from '../components/FocusController'
+import { setInputContext } from '../lib/inputContext'
+import { playUISound } from '../lib/audio'
+import {
+  getRememberedCottageCompanionMode,
+  rememberCottageCompanionMode,
+  type CottageCompanionMode,
+} from '../lib/cottage-scene'
 import '../cottage-world.css'
 
 export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void }) {
@@ -31,25 +38,62 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
 
   const [messageIndex, setMessageIndex] = useState(0)
   const [dialogueOpen, setDialogueOpen] = useState(false)
+  const [dialogueChoice, setDialogueChoice] = useState(2)
+  const [companionMode, setCompanionMode] = useState<CottageCompanionMode>(() => getRememberedCottageCompanionMode())
+  const closeDialogue = useCallback(() => {
+    setDialogueOpen(false)
+    setInputContext('world')
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pixi-cottage-scene')?.focus())
+  }, [])
   const openDialogue = useCallback(() => {
     setMessageIndex(0)
+    setDialogueChoice(2)
+    setInputContext('dialog')
     setDialogueOpen(true)
   }, [])
   const advanceMessage = useCallback(() => {
     setMessageIndex((index) => {
       if (index + 1 >= messages.length) {
-        setDialogueOpen(false)
+        closeDialogue()
         return 0
       }
       return index + 1
     })
-  }, [messages.length])
+  }, [closeDialogue, messages.length])
   const interactWithCompanion = useCallback(() => {
     if (dialogueOpen) advanceMessage()
     else openDialogue()
   }, [advanceMessage, dialogueOpen, openDialogue])
+  const toggleCompanionMode = useCallback(() => {
+    setCompanionMode((current) => {
+      const next: CottageCompanionMode = current === 'follow' ? 'stay' : 'follow'
+      rememberCottageCompanionMode(next)
+      return next
+    })
+  }, [])
+  useEffect(() => {
+    if (!dialogueOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (['Escape', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) { event.stopPropagation(); event.stopImmediatePropagation() }
+      if (event.key === 'Escape') { event.preventDefault(); playUISound('select'); closeDialogue(); return }
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault(); playUISound('select'); setDialogueChoice((value) => event.key === 'ArrowLeft' ? (value + 2) % 3 : (value + 1) % 3); return
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        playUISound('select')
+        if (dialogueChoice === 0) toggleCompanionMode()
+        else if (dialogueChoice === 1) closeDialogue()
+        else advanceMessage()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [advanceMessage, closeDialogue, dialogueChoice, dialogueOpen, toggleCompanionMode])
 
   const handleAction = (action: CottageAction) => {
+    // The cottage door is the direct expedition entry point. The town remains
+    // a paused draft and must not sit between the player and their next task.
     if (action === 'expedition') return startFocus(dashboard.nextTasks[0]?.id)
     if (action === 'journal') return onNavigate('history')
     if (action === 'inventory') {
@@ -66,7 +110,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         <span className='cottage-world-sigil' aria-hidden='true'><Icon name='home' size={18} /></span>
         <div>
           <small>王国边境 · 炉火仍明</small>
-          <h1>欢迎回家，{dashboard.settings.user_name || '旅行者'}。</h1>
+          <h1>{`欢迎回家，${dashboard.settings.user_name || '旅行者'}。`}</h1>
         </div>
       </div>
       <div className='cottage-world-vitals'>
@@ -87,12 +131,17 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         companion={companion}
         onAction={handleAction}
         onCompanionInteract={interactWithCompanion}
+        companionMode={companionMode}
       />
-      {dialogueOpen && <button className='cottage-world-dialogue' onClick={advanceMessage} title='点击继续对话'>
+      {dialogueOpen && <div className='cottage-world-dialogue' role='dialog' aria-label={`${companion?.nickname || '伙伴'}的对话`}>
         <span className='dialogue-heart'>♥</span>
         <span><strong>{companion?.nickname || '伙伴'}<small>{companion?.stageName || '常伴伙伴'} · 可在伙伴营地更换</small></strong><em>{messages[messageIndex]}</em></span>
-        <i>继续 ▸</i>
-      </button>}
+        <div className='cottage-dialogue-controls'>
+          <button className={dialogueChoice === 0 ? 'is-selected' : ''} onClick={toggleCompanionMode}>{dialogueChoice === 0 ? '▶ ' : ''}{companionMode === 'follow' ? '在这里等我' : '一起走吧'}</button>
+          <button className={dialogueChoice === 1 ? 'is-selected' : ''} onClick={closeDialogue}>{dialogueChoice === 1 ? '▶ ' : ''}结束交谈</button>
+          <button className={dialogueChoice === 2 ? 'is-selected' : ''} onClick={advanceMessage}>{dialogueChoice === 2 ? '▶ ' : ''}继续</button>
+        </div>
+      </div>}
     </section>
   </div>
 }

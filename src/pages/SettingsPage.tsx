@@ -31,6 +31,12 @@ export function SettingsPage() {
     }).catch((error) => notify(friendlyError(error), 'error'))
   }, [notify])
 
+  // Existing installations may still have DeepSeek's retired alias saved.
+  // Keep the form in sync with the request-side compatibility mapping.
+  useEffect(() => {
+    if (provider === 'deepseek' && model === 'deepseek-chat') setModel('deepseek-v4-flash')
+  }, [provider, model])
+
   const saveBirthday = async () => {
     setBusy(true)
     try {

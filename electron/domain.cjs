@@ -261,14 +261,11 @@ function neutralCompare(curr, prev) {
 
 // ── 小天使人格 ─────────────────────────────────────────────
 // 名字: 没有提过。旅人叫她"小天使"就可以了。
-// 住處: 邮局二楼朝西的小房间。窗台上有一盆叫不出名字的花，
-//       是去年春天莉娅（制图师）路过时顺手放的。
-// 日常: 天刚暗下来的时候开始整理信件。先按木格排好，
+// 工作: 天刚暗下来的时候在邮局整理信件。先按木格排好，
 //       再一封一封盖邮戳、封蜡。蜡封的颜色看心情选，
 //       偶尔会盖歪——但从来不重新盖。
-// 细节: 邮袋对她来说有点大，拖在地上的时候比背起来多。
-//       柜台上那盏灯的灯油是奥伦（旅店老板）每个月分给她的。
-//       有时候艾达（木匠）会来帮她修松动的窗框。
+// 边界: 她整理旅人的真实足迹，不把居民私事、维护细节或未经发生的
+//       小镇传闻写进周期来信。
 // 语气: 安静、细致。不说"你应该"，只说"我看见了"。
 //       不评价，不鼓励。只是告诉旅人: 你走过的路，有人记得。
 
@@ -484,7 +481,6 @@ function generateDailyTemplate(facts, seedInput) {
   const observatory = facts.observatory || {}
   const chronicle = facts.chronicle || {}
   const season = chronicle.season || seasonForDate(new Date((facts.periodStart || facts.period?.periodStart || Date.now())))
-  const state = facts.worldState
   const departures = totalDepartures(facts)
   const direction = narrativeDirectionName(journey.mainDirectionNarrative)
   const taskMarks = namedMarks(journey.completedTasks)
@@ -506,10 +502,9 @@ function generateDailyTemplate(facts, seedInput) {
   else parts.push('今天留下的足迹，我已经按着来路收进星页里。')
   if (observatory.hasWrittenReview) parts.push('天文台旁还留着你写下的一句话，我也一并夹进了信札。')
   else parts.push('天文台把这段来路安静地记在了今日的星页上。')
-  if (discoveries.length) parts.push(`${season}天的编年史收下了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
+    if (discoveries.length) parts.push(`${season}天的冒险日志收下了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
   else parts.push(`${season}天的这一页，我已经和今日的足迹放在一起。`)
-  if (state?.locations?.postOffice) parts.push(worldStateDetail(state, seed))
-  else parts.push(weatherNote(season, seed))
+  parts.push(weatherNote(season, seed))
   parts.push('我把今天的记录收进木格里了。')
   return parts.join('')
 }
@@ -545,7 +540,7 @@ const WEEKLY_SAME = [
 
 const WEEKLY_CLOSINGS = [
   '我把这些收进了木匣。下周这个时候，邮局的灯还会亮着。',
-  '旅途编年史又厚了一页。我把这一周的信札放好，下周见。',
+    '冒险日志又添了一页。我把这一周的信札放好，下周见。',
   '愿新的一周路上有风，炉火不熄。',
   '邮局的灯还亮着，你的木格也还空着一格——留给下周。',
 ]
@@ -584,10 +579,9 @@ function generateWeeklyTemplate(facts, seedInput) {
     parts.push(WEEKLY_SAME[seed % WEEKLY_SAME.length])
   }
 
-  if (discoveries.length) parts.push(`${season}天的编年史这一页添进了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
-  else parts.push(`${season}天的编年史把这一周的来路收好了。`)
-  if (facts.worldState?.locations?.postOffice) parts.push(worldStateDetail(facts.worldState, seed))
-  else if (seed % 4 === 0) parts.push(weatherNote(season, seed))
+    if (discoveries.length) parts.push(`${season}天的冒险日志这一页添进了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
+    else parts.push(`${season}天的冒险日志把这一周的来路收好了。`)
+  if (seed % 4 === 0) parts.push(weatherNote(season, seed))
 
   parts.push(WEEKLY_CLOSINGS[seed % WEEKLY_CLOSINGS.length])
 

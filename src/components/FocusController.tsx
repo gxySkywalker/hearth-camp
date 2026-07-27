@@ -399,7 +399,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
                   ? ' · 已记入旅途'
                   : showRelicContent
                     ? ' · 知识遗物已归档'
-                    : ' · 已收入编年史'}
+                    : ' · 已收入冒险日志'}
               </p>
               {stopResult?.primaryTask?.completed && (
                 <p className="return-brief-task">抵达路标 · {sessionTitle}</p>

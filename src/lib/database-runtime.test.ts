@@ -93,13 +93,13 @@ describe('AI configuration persistence', () => {
 
     database.setSettings({
       api_provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       ai_base_url: 'https://api.deepseek.com/v1',
     })
 
     expect(database.getSettings()).toMatchObject({
       api_provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-flash',
       ai_base_url: 'https://api.deepseek.com/v1',
     })
   })
@@ -1448,6 +1448,17 @@ describe('welcome letter', () => {
     const letters = database.listLetters({ letterType: 'memorial' })
     expect(letters.length).toBe(1)
     expect(letters[0].subject).toBe('你好呀，旅人')
+  })
+
+  it('welcomes the traveller from the post office counter, not an upstairs residence', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-welcome-copy-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    database.ensureWelcomeLetter()
+    const letter = database.listLetters({ letterType: 'memorial' })[0]
+    expect(letter.template_body).toContain('天使邮局的木格')
+    expect(letter.template_body).toContain('柜台后')
+    expect(letter.template_body).not.toContain('邮局二楼')
   })
 
   it('welcome letter has ai_status template (never AI)', async () => {

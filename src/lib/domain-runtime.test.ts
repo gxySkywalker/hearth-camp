@@ -225,7 +225,7 @@ describe('template generation', () => {
     expect(generateWeeklyTemplate(f, 's1')).toBe(generateWeeklyTemplate(f, 's1'))
   })
 
-  it('daily template writes the frozen journey, observatory, chronicle, and world facts', () => {
+  it('daily template writes the frozen journey, observatory, and chronicle without postal private matters', () => {
     const body = generateDailyTemplate({
       stats: { totalActiveSeconds: 600, sessionCounts: { brief: 0, short: 2, expedition: 1, deep: 0 } },
       journey: { mainDirection: '松风林', mainDirectionNarrative: { name: '松风林', source: 'world_place' }, completedTasks: [{ title: '确认旧路' }, { title: '收好地图边角' }] },
@@ -240,7 +240,8 @@ describe('template generation', () => {
     expect(body).toContain('林间旧亭')
     expect(body).toContain('天文台')
     expect(body).toContain('夏天')
-    expect(body).toContain('艾达今天来把窗框紧了一下')
+    expect(body).not.toContain('艾达')
+    expect(body).not.toContain('窗框')
   })
 
   it('weekly template writes the main direction, representative waypoint, chronicle, and prior-week relation', () => {
@@ -259,7 +260,8 @@ describe('template generation', () => {
     expect(body).toContain('河湾的旧路终于接上了。')
     expect(body).toContain('比上周走得更远')
     expect(body).toContain('秋天')
-    expect(body).toContain('艾达今天来把窗框紧了一下')
+    expect(body).not.toContain('艾达')
+    expect(body).not.toContain('窗框')
   })
 
   it('daily template length in range', () => {

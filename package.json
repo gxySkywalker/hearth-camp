@@ -1,6 +1,6 @@
 {
   "name": "growth-arc",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "A private, local-first learning and focus system",
   "main": "electron/main.cjs",

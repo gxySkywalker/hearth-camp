@@ -134,11 +134,27 @@ async function generateLetterNarrative(letter) {
   })
 }
 
+function migrateRetiredDeepSeekLetterModel() {
+  const settings = database.getSettings()
+  if (settings.api_provider !== 'deepseek' || settings.model !== 'deepseek-chat') return 0
+
+  database.setSettings({ model: 'deepseek-v4-flash' })
+  // The old alias can have exhausted the normal retry budget. Give only the
+  // affected template letters one fresh attempt with the supported model;
+  // never replace an existing AI body or alter frozen facts.
+  database.run(
+    "UPDATE letters SET ai_status = 'pending', ai_retry_count = 0 WHERE letter_type IN ('daily', 'weekly') AND ai_body IS NULL AND ai_status = 'failed'"
+  )
+  return 0
+}
+
 async function ensureAiNarratives() {
   const MAX_RETRIES = 3
   const GLOBAL_TIMEOUT = 60000 // 60s max for all letters
   const deadline = Date.now() + GLOBAL_TIMEOUT
   const summary = { considered: 0, polished: 0, failed: 0, skipped: 0 }
+
+  migrateRetiredDeepSeekLetterModel()
 
   // Only process NEW letters (pending), not historical template letters.
   // Failed letters with retries remaining are also retried.
@@ -240,7 +256,9 @@ async function generateAiReport(type, date) {
   const periodName = type === 'daily' ? '日复盘' : '周成长报告'
 
   if (provider === 'deepseek') {
-    const model = settings.model || 'deepseek-chat'
+    const model = !settings.model || settings.model === 'deepseek-chat'
+      ? 'deepseek-v4-flash'
+      : settings.model
     const schemaDesc = `返回严格 JSON：{"summary":"一段温和总结","wins":["最多4条"],"patterns":["最多4条"],"risks":["最多3条"],"suggestions":["最多3条"],"next_focus":"一个足够小的下一步"}`
     const body = {
       model,

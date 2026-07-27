@@ -129,6 +129,7 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
   const [hasOlderLetters, setHasOlderLetters] = useState(false)
   const [loadingOlderLetters, setLoadingOlderLetters] = useState(false)
   const detailCache = useRef<Map<string, { body: string; factSummary: any; replyText: string | null; aiStatus?: string }>>(new Map())
+  const [detailRevision, refreshLetterDetail] = useState(0)
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [replyMap, setReplyMap] = useState<Record<string, string>>({})
 
@@ -274,6 +275,10 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
           replyText: detail.replyText,
           aiStatus: detail.aiStatus,
         })
+        // List data contains an intentionally short preview. Always re-render
+        // after loading the detail, including when an archived letter is
+        // already read and therefore does not change its read state.
+        refreshLetterDetail((revision) => revision + 1)
         // Update replyMap from server state
         if (detail.replyText) {
           setReplyMap(prev => ({ ...prev, [letter.id]: detail.replyText! }))
@@ -293,12 +298,11 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
   }, [readIds, markRead])
 
   // Re-fetch selected letter when cache updates
-  const [, forceUpdate] = useState(0)
   const selectedLetterFull = useMemo(() => {
     if (!selectedLetter || !detailCache.current.has(selectedLetter.id)) return selectedLetter
     const detail = detailCache.current.get(selectedLetter.id)!
     return { ...selectedLetter, body: detail.body, factSummary: detail.factSummary, replyText: detail.replyText ?? '', hasReply: (detail.replyText ?? '').trim().length > 0 }
-  }, [selectedLetter, readIds]) // eslint-disable-line
+  }, [selectedLetter, readIds, detailRevision])
 
   const getValue = (letter: MockLetter): string => {
     const mode = getInteractionMode(letter)

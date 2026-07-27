@@ -1,6 +1,7 @@
 import type { Companion } from '../types'
 import { PixiCottageScene } from './PixiCottageScene'
 import type { CottageInteractionAction } from '../lib/cottage-scene'
+import type { CottageCompanionMode } from '../lib/cottage-scene'
 
 export type CottageAction = CottageInteractionAction
 
@@ -15,12 +16,14 @@ export function CottageScene({
   immersive = false,
   onAction,
   onCompanionInteract,
+  companionMode,
 }: {
   playerName: string
   companion?: Companion | null
   immersive?: boolean
   onAction?: (action: CottageAction) => void
   onCompanionInteract?: () => void
+  companionMode?: CottageCompanionMode
 }) {
   return <PixiCottageScene
     playerName={playerName}
@@ -28,5 +31,6 @@ export function CottageScene({
     immersive={immersive}
     onAction={onAction}
     onCompanionInteract={onCompanionInteract}
+    companionMode={companionMode}
   />
 }

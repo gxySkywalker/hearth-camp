@@ -86,7 +86,7 @@ personalityProfile
 `personalityProfile` 只影响：
 
 - E 键互动文本；
-- 编年史描述；
+- 冒险日志描述；
 - 共同记忆文字。
 
 它不得影响：

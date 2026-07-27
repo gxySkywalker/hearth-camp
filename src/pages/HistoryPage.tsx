@@ -73,7 +73,7 @@ export function HistoryPage() {
 
   return <div className="page chronicle-page">
     <header className="page-heading">
-      <div><span className="eyebrow">CHRONICLE</span><h1>旅途编年史</h1><p>记录你真正走过的每一段路。每次远征自动成档，安静留在这里。</p></div>
+      <div><span className="eyebrow">ADVENTURE LOG</span><h1>冒险日志</h1><p>记录你真正走过的每一段路。每次远征自动成档，安静留在这里。</p></div>
       <select className="filter-select" value={area} onChange={(e) => setArea(e.target.value)}>
         <option value="all">全部方向</option>
         {structure?.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -87,7 +87,7 @@ export function HistoryPage() {
     </section>
 
     <div className="chronicle-timeline panel">
-      {loading ? <div className="loading-state">正在整理编年史…</div> : groups.length ? groups.map(([date, items]) => {
+      {loading ? <div className="loading-state">正在整理冒险日志…</div> : groups.length ? groups.map(([date, items]) => {
         const dayTotal = items.reduce((s, i) => s + Number(i.active_seconds), 0)
         return <section className="chronicle-day" key={date}>
           <header className="chronicle-day-header">
@@ -213,7 +213,7 @@ export function HistoryPage() {
             })}
           </div>
         </section>
-      }) : <div className="empty-state tall"><Icon name="history" size={32} /><strong>编年史还没有内容</strong><span>完成第一次远征后，属于你的旅途记录会从这里开始。</span></div>}
+    }) : <div className="empty-state tall"><Icon name="history" size={32} /><strong>冒险日志还没有内容</strong><span>完成第一次远征后，属于你的旅途记录会从这里开始。</span></div>}
     </div>
   </div>
 }

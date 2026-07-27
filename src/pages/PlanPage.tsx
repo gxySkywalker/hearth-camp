@@ -81,7 +81,7 @@ export function PlanPage() {
 
   if (!globalStructure) return null
   if (!managed) return <div className="page cartography-page"><div className="loading-state">正在展开地图…</div></div>
-  if (loadError) return <div className="page cartography-page"><div className="empty-state tall"><Icon name="plan" size={32} /><strong>制图室暂时无法载入</strong><span>请重启应用后重试。</span><button className="button button-secondary" onClick={() => { setLoadError(false); loadManaged() }}>重新加载</button></div></div>
+  if (loadError) return <div className="page cartography-page"><div className="empty-state tall"><Icon name="plan" size={32} /><strong>制图桌暂时无法载入</strong><span>请重启应用后重试。</span><button className="button button-secondary" onClick={() => { setLoadError(false); loadManaged() }}>重新加载</button></div></div>
 
   const areaId = selectedArea || managed.areas[0]?.id || ''
   const area = managed.areas.find(a => a.id === areaId)
@@ -203,7 +203,7 @@ export function PlanPage() {
 
   return <div className="page cartography-page">
     <header className="cartography-head">
-      <div><span className="eyebrow">制图室</span><h1>{view === 'map' ? '路标地图' : '计划总览'}</h1></div>
+        <div><span className="eyebrow">制图桌</span><h1>{view === 'map' ? '路标地图' : '计划总览'}</h1></div>
       <div className="cartography-head-actions">
         <div className="segmented">
           <button className={view === 'map' ? 'active' : ''} onClick={() => { setView('map'); setStatusFilter('active'); setHelpOpen(false) }}>路标地图</button>

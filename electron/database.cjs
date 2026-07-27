@@ -42,6 +42,22 @@ const {
   evolutionReady,
   growthPathForCompanion,
 } = require('./game.cjs')
+
+const WELCOME_TEMPLATE = [
+  '你好呀，旅人。',
+  '',
+  '这封信一直放在天使邮局的木格里，等你来到这里。',
+  '我是负责整理来信、盖上邮戳的小天使。',
+  '',
+  '每当你亲自走过一段路，',
+  '我都会把那段真实的足迹收进星页。',
+  '没有来信的日子，也只是安静地过去了。',
+  '',
+  '以后如果愿意，',
+  '可以常来邮局看看。',
+  '',
+  '我会在柜台后，把你的信仔细收好。',
+].join('\n')
 const {
   WORLD_CONTENT_NAMESPACE,
   WORLD_CONTENT_VERSION,
@@ -353,6 +369,38 @@ class StudyDatabase {
       // rare bonus is retired rather than silently changing its source.
       this.run("DELETE FROM settings WHERE key = 'rare_boost'", [], false)
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '13')")
+    }
+
+    if (version < 14) {
+      // V14: the angel works at the post office; welcome letters no longer
+      // describe an upstairs residence. This only refreshes the fixed welcome
+      // copy and leaves its event, facts, read state and any reply untouched.
+      this.run("UPDATE letters SET template_body = ?, updated_at = ? WHERE letter_type = 'memorial' AND period_key = 'welcome:first_visit'", [WELCOME_TEMPLATE, Date.now()], false)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '14')")
+    }
+
+    if (version < 15) {
+      // V15: periodic letters now belong to the traveller's record, not to
+      // incidental post-office life. Rebuild only their narrative layer from
+      // each letter's frozen facts; dates, facts, read state and replies stay.
+      // Some early v0.7 installs recorded a newer migration marker without
+      // every AI column. Keep this repair idempotent before touching them.
+      const aiColumns = new Set(this.all('PRAGMA table_info(letters)').map((column) => column.name))
+      if (!aiColumns.has('ai_status')) this.db.run("ALTER TABLE letters ADD COLUMN ai_status TEXT NOT NULL DEFAULT 'template'")
+      if (!aiColumns.has('ai_provider')) this.db.run('ALTER TABLE letters ADD COLUMN ai_provider TEXT')
+      if (!aiColumns.has('ai_model')) this.db.run('ALTER TABLE letters ADD COLUMN ai_model TEXT')
+      if (!aiColumns.has('ai_prompt_version')) this.db.run('ALTER TABLE letters ADD COLUMN ai_prompt_version INTEGER')
+      if (!aiColumns.has('ai_retry_count')) this.db.run('ALTER TABLE letters ADD COLUMN ai_retry_count INTEGER NOT NULL DEFAULT 0')
+      const letters = this.all("SELECT id, letter_type, period_key, fact_json FROM letters WHERE letter_type IN ('daily', 'weekly')")
+      for (const letter of letters) {
+        const facts = JSON.parse(letter.fact_json)
+        const seed = `${letter.letter_type}:${letter.period_key}:1`
+        const templateBody = letter.letter_type === 'daily'
+          ? generateDailyTemplate(facts, seed)
+          : generateWeeklyTemplate(facts, seed)
+        this.run("UPDATE letters SET template_body = ?, ai_body = NULL, body_source = 'template', ai_status = 'pending', ai_provider = NULL, ai_model = NULL, ai_prompt_version = NULL, ai_retry_count = 0, updated_at = ? WHERE id = ?", [templateBody, Date.now(), letter.id], false)
+      }
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '15')")
     }
   }
 
@@ -2056,23 +2104,7 @@ class StudyDatabase {
     // Use the player's actual world-entered date, not current time
     const worldEntered = this.worldEnteredAtMs() || Date.now()
     const letterId = crypto.randomUUID()
-    const templateBody = [
-      '今天有人把一张新的旅途卡片放进了邮局的木格里。',
-      '我想，那应该属于你。',
-      '',
-      '我是住在邮局二楼的小天使。',
-      '平时负责整理信件、盖邮戳，',
-      '还有替旅人们收好那些容易被忘记的小事情。',
-      '',
-      '不用担心这里现在还很安静。',
-      '每当你走过一段路，',
-      '我都会替你把那些足迹收好。',
-      '',
-      '以后如果愿意，',
-      '可以常来看看。',
-      '',
-      '我会在这里。',
-    ].join('\n')
+    const templateBody = WELCOME_TEMPLATE
 
     try {
       this.createLetter({

@@ -1,4 +1,4 @@
-const { narrativeDirectionName, worldStateDetail, hashSeed } = require('./domain.cjs')
+const { narrativeDirectionName } = require('./domain.cjs')
 
 function parseLetterFact(letter) {
   const raw = letter?.fact ?? letter?.fact_json
@@ -31,9 +31,6 @@ function buildNarrativeFactEnvelope(letter) {
   const journey = fact.journey || {}
   const chronicle = fact.chronicle || {}
   const period = fact.period || {}
-  const postOfficeDetail = fact.worldState?.locations?.postOffice
-    ? worldStateDetail(fact.worldState, hashSeed(`ai:${period.periodKey || letter.period_key || ''}`))
-    : null
   return {
     letterType: fact.letterType || letter.letter_type,
     period: { periodKey: period.periodKey || letter.period_key || null },
@@ -54,7 +51,6 @@ function buildNarrativeFactEnvelope(letter) {
       season: chronicle.season || null,
       newDiscoveries: narrativeNames(chronicle.newDiscoveries),
     },
-    worldState: postOfficeDetail ? { postOfficeDetail } : {},
   }
 }
 
@@ -66,9 +62,18 @@ function shouldUseAiBody(letter) {
   return Number(letter?.is_read) !== 1
 }
 
+const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash'
+const DEPRECATED_DEEPSEEK_MODELS = new Set(['deepseek-chat'])
+
 function resolveAngelAiConfig(settings = {}) {
   const provider = ['deepseek', 'openai', 'custom'].includes(settings.api_provider) ? settings.api_provider : 'openai'
-  const model = String(settings.model || (provider === 'deepseek' ? 'deepseek-chat' : 'gpt-5.6-luna')).trim()
+  const savedModel = String(settings.model || '').trim()
+  // DeepSeek retired the old `deepseek-chat` alias. Resolve it at the request
+  // boundary so existing DPAPI-backed key setups recover without requiring a
+  // key re-entry or changing the mail lifecycle.
+  const model = provider === 'deepseek' && (!savedModel || DEPRECATED_DEEPSEEK_MODELS.has(savedModel))
+    ? DEEPSEEK_DEFAULT_MODEL
+    : (savedModel || 'gpt-5.6-luna')
   const defaultBaseUrl = provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1'
   // A provider's saved endpoint is only meaningful for the explicit custom
   // option. This prevents a stale custom URL from silently intercepting a

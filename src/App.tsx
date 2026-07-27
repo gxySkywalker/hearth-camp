@@ -19,9 +19,9 @@ import type { PageId } from './types'
 const NAV: Array<{ id: PageId; label: string; icon: string }> = [
   { id: 'home', label: '炉火小屋', icon: 'home' },
   { id: 'overview', label: '旅程总览', icon: 'book' },
-  { id: 'plan', label: '制图室', icon: 'plan' },
+  { id: 'plan', label: '制图桌', icon: 'plan' },
   { id: 'growth', label: '伙伴营地', icon: 'growth' },
-  { id: 'history', label: '旅途编年史', icon: 'history' },
+  { id: 'history', label: '冒险日志', icon: 'history' },
   { id: 'observatory', label: '天文台', icon: 'star' },
   { id: 'mail', label: '天使邮局', icon: 'mail' },
 ]
