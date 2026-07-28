@@ -426,6 +426,8 @@ export interface GrowthArcApi {
     setApiKey: (key: string) => Promise<boolean>
     clearApiKey: () => Promise<boolean>
     openDataFolder: () => Promise<string>
+    getBgmSources: () => Promise<{ folder: string; cottage: string | null; expedition: string | null }>
+    openBgmFolder: () => Promise<string>
     getBirthday: () => Promise<{ month: number; day: number; updatedAt: number }>
     setBirthday: (month: number, day: number) => Promise<{ month: number; day: number; updatedAt: number }>
   }

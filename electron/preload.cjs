@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('growthArc', {
     setApiKey: (key) => invoke('settings:set-api-key', key),
     clearApiKey: () => invoke('settings:clear-api-key'),
     openDataFolder: () => invoke('settings:open-data-folder'),
+    getBgmSources: () => invoke('settings:get-bgm-sources'),
+    openBgmFolder: () => invoke('settings:open-bgm-folder'),
     getBirthday: () => invoke('settings:get-birthday'),
     setBirthday: (month, day) => invoke('settings:set-birthday', { month, day }),
   },

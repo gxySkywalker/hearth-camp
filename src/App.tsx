@@ -290,7 +290,13 @@ function AppShell() {
   }, [page])
 
   useEffect(() => {
-    bgm.play('assets/audio/bgm/cottage.mp3')
+    // BGM is intentionally supplied by the player as a local music pack.
+    // Keep the app quiet when no files have been installed.
+    window.growthArc.settings.getBgmSources()
+      .then(({ cottage, expedition }) => bgm.setSources({ cottage, expedition }))
+      .catch(() => bgm.setSources({ cottage: null, expedition: null }))
+    bgm.play('cottage')
+    return () => bgm.stop()
   }, [])
 
   if (loading) return <div className="app-loading"><div className="loading-fire">◆</div><strong>正在点亮壁炉</strong><span>伙伴们在整理昨夜的行囊…</span></div>

@@ -3,16 +3,33 @@ export const BGM_DEFAULT_VOLUME = 0.2
 export const UI_SELECT_VOLUME = 0.25
 export const UI_MAIL_OPEN_VOLUME = 0.3
 
+export type BgmTrack = 'cottage' | 'expedition'
+export type BgmSources = Record<BgmTrack, string | null>
+
 class BgmManager {
   private current: HTMLAudioElement | null = null
   private currentSrc = ''
   private baseVolume = BGM_DEFAULT_VOLUME
   private lastVolume = BGM_DEFAULT_VOLUME  // 静音前的音量，用于恢复
+  private sources: BgmSources = { cottage: null, expedition: null }
+  private requestedTrack: BgmTrack | null = null
 
-  /** 切换背景音乐（自动循环），相同曲目不重复加载 */
-  play(src: string, volume = this.baseVolume) {
+  /** 从本地 BGM 包更新两个固定场景的音乐来源。 */
+  setSources(sources: BgmSources) {
+    this.sources = sources
+    if (this.requestedTrack) this.play(this.requestedTrack)
+  }
+
+  /** 切换背景音乐（自动循环）；没有本地音乐包时静音。 */
+  play(track: BgmTrack, volume = this.baseVolume) {
+    this.requestedTrack = track
+    const src = this.sources[track]
+    if (!src) {
+      this.stopCurrent()
+      return
+    }
     if (this.currentSrc === src && this.current && !this.current.paused) return
-    this.stop()
+    this.stopCurrent()
     const audio = new Audio(src)
     audio.loop = true
     audio.volume = volume
@@ -23,6 +40,11 @@ class BgmManager {
 
   /** 停止当前 BGM */
   stop() {
+    this.requestedTrack = null
+    this.stopCurrent()
+  }
+
+  private stopCurrent() {
     if (this.current) {
       this.current.pause()
       this.current.currentTime = 0

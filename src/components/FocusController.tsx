@@ -81,8 +81,8 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
   const selectedStartCompanion = companions.find(c => c.id === companionId) || dashboard?.world.companions.active || null
 
   useEffect(() => {
-    if (activeSession) bgm.play('assets/audio/bgm/expedition.mp3')
-    else bgm.play('assets/audio/bgm/cottage.mp3')
+    if (activeSession) bgm.play('expedition')
+    else bgm.play('cottage')
   }, [activeSession])
 
   useEffect(() => {

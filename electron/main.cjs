@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Notification, Menu, Tray, nativeImage, safeStorage, shell, powerMonitor } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
+const { pathToFileURL } = require('node:url')
 const { ProxyAgent } = require('undici')
 const { StudyDatabase } = require('./database.cjs')
 const { generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig } = require('./angel-ai.cjs')
@@ -113,6 +114,33 @@ function readApiKey() {
 
 function clearApiKey() {
   if (fs.existsSync(secretPath())) fs.unlinkSync(secretPath())
+}
+
+function bgmFolderPath() {
+  return path.join(app.getPath('userData'), 'audio', 'bgm')
+}
+
+function ensureBgmFolder() {
+  const folder = bgmFolderPath()
+  fs.mkdirSync(folder, { recursive: true })
+  return folder
+}
+
+function getBgmSources() {
+  const folder = ensureBgmFolder()
+  const sourceFor = (filename) => {
+    const file = path.join(folder, filename)
+    try {
+      return fs.statSync(file).isFile() ? pathToFileURL(file).toString() : null
+    } catch {
+      return null
+    }
+  }
+  return {
+    folder,
+    cottage: sourceFor('cottage.mp3'),
+    expedition: sourceFor('expedition.mp3'),
+  }
 }
 
 function parseResponseText(response) {
@@ -401,6 +429,8 @@ function registerHandlers() {
   })
   handle('settings:clear-api-key', () => { clearApiKey(); return true })
   handle('settings:open-data-folder', async () => shell.openPath(database.openDataPath()))
+  handle('settings:get-bgm-sources', () => getBgmSources())
+  handle('settings:open-bgm-folder', async () => shell.openPath(ensureBgmFolder()))
   handle('ai:generate', ({ type, date }) => generateAiReport(type, date))
   handle('inventory:use', (itemId) => database.useItem(itemId))
   handle('inventory:use-target', ({ itemId, companionId }) => database.useItem(itemId, companionId))
