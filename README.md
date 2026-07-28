@@ -31,7 +31,7 @@
 ### Windows 10 / 11（64 位）
 
 1. 前往 [Releases](https://github.com/gxySkywalker/growth-arc/releases/latest)。
-2. 下载最新版本中的 `炉火营地 Setup *.exe`。
+2. 下载最新版本中的 `Hearth-Camp-Setup-*-x64.exe`。
 3. 双击安装，随后从开始菜单或桌面启动「炉火营地」。
 
 安装包目前未进行商业代码签名。若 Windows SmartScreen 显示来源提示，请只从本仓库的 Release 页面下载，并核对发布页提供的 SHA-256 校验值后再继续。
