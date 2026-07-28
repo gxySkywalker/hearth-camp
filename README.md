@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gxySkywalker/growth-arc/releases/latest"><strong>下载 Windows 版</strong></a>
+  <a href="https://github.com/gxySkywalker/hearth-camp/releases/latest"><strong>下载 Windows 版</strong></a>
   · <a href="#快速开始">快速开始</a>
   · <a href="#功能一览">功能一览</a>
   · <a href="CHANGELOG.md">更新日志</a>
@@ -30,7 +30,7 @@
 
 ### Windows 10 / 11（64 位）
 
-1. 前往 [Releases](https://github.com/gxySkywalker/growth-arc/releases/latest)。
+1. 前往 [Releases](https://github.com/gxySkywalker/hearth-camp/releases/latest)。
 2. 下载最新版本中的 `Hearth-Camp-Setup-*-x64.exe`。
 3. 双击安装，随后从开始菜单或桌面启动「炉火营地」。
 
@@ -110,7 +110,7 @@ npm run dist   # Windows NSIS 安装包
 
 ## 反馈
 
-欢迎通过 [Issues](https://github.com/gxySkywalker/growth-arc/issues) 提交问题、体验感受或截图。公开内测阶段尤其欢迎反馈：安装与升级、远征结算、伙伴展示、小屋交互、邮局信件与性能表现。
+欢迎通过 [Issues](https://github.com/gxySkywalker/hearth-camp/issues) 提交问题、体验感受或截图。公开内测阶段尤其欢迎反馈：安装与升级、远征结算、伙伴展示、小屋交互、邮局信件与性能表现。
 
 ---
 

@@ -63,7 +63,7 @@
 - 当前正式版本：**v0.8.0 - 炉火营地公开内测版**
 - `package.json` 版本：`0.8.0`
 - 分支：`master`，发布时同步推送至 `origin`
-- GitHub Release：<https://github.com/gxySkywalker/growth-arc/releases/tag/v0.8.0>
+- GitHub Release：<https://github.com/gxySkywalker/hearth-camp/releases/tag/v0.8.0>
 - v0.8.0 是公开内测版（不是 draft / prerelease），README 与 Release 说明同步更新。
 - Windows x64 NSIS 安装包：`炉火营地 Setup 0.8.0.exe`；SHA-256 见 `docs/releases/v0.8.0.md`。
 
@@ -216,7 +216,7 @@ npm run build
 
 - Git 安装在：`C:\Program Files\Git\cmd\git.exe`，但当前 PowerShell 环境可能未将其加入 PATH。
 - `gh` 已登录 `gxySkywalker`，具有 `repo` 权限；读取配置在受限沙箱可能被拒绝，需要经过用户授权的提升权限命令。
-- 当前远端：`https://github.com/gxySkywalker/growth-arc.git`。
+- 当前远端：`https://github.com/gxySkywalker/hearth-camp.git`。
 - 发布前应执行：`git status --short`、`git diff --check`、测试、资源校验、构建；有混合工作树时必须显式暂存，不得 `git add -A`。
 - 只有用户明确要求时才提交、推送、创建 release 或上传安装包。
 
