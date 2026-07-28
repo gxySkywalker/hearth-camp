@@ -822,9 +822,10 @@ describe('local learning database', () => {
     expect(result.expedition.drops).toEqual([])
     expect(result.expedition.bondXp).toBe(0)
     expect(result.expedition.rareFound).toBe(false)
-    const ex2 = database.getExpedition(session.id)
-    expect(ex2.returnKind).toBe('brief')
-    expect(ex2.drops).toEqual([])
+    // Brief returns are only shown transiently in the return UI. They do not
+    // persist into the adventure log or any observatory-facing data.
+    expect(database.getExpedition(session.id)).toBeNull()
+    expect(database.getHistory()).toEqual([])
     // pity unchanged
     const settings2 = database.getSettings()
     expect(Number(settings2.rare_pity || 0)).toBe(initRare)
@@ -1015,7 +1016,7 @@ describe('local learning database', () => {
     const stats = database.getCompletedStats(dayStart, dayEnd)
 
     expect(stats.totalActiveSeconds).toBeGreaterThanOrEqual(720)
-    expect(stats.sessionCounts.brief).toBeGreaterThanOrEqual(1)
+    expect(stats.sessionCounts.brief).toBe(0)
     expect(stats.sessionCounts.short).toBeGreaterThanOrEqual(1)
     expect(stats.sessionCounts.expedition).toBeGreaterThanOrEqual(1)
     expect(stats.completedTaskCount).toBeGreaterThanOrEqual(1)

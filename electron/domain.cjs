@@ -623,9 +623,10 @@ function buildJourneyFacts(stats) {
 }
 
 function buildExpeditionStories(db, start, end, limit = 8) {
-  const rows = db.all(`SELECT location, event_text, rewards_json
-    FROM expeditions WHERE created_at >= ? AND created_at < ?
-    ORDER BY created_at ASC LIMIT ?`, [start, end, limit])
+  const rows = db.all(`SELECT e.location, e.event_text, e.rewards_json
+    FROM expeditions e JOIN focus_sessions s ON s.id = e.session_id
+    WHERE s.active_seconds >= 60 AND e.created_at >= ? AND e.created_at < ?
+    ORDER BY e.created_at ASC LIMIT ?`, [start, end, limit])
   const unique = (items, max = 3) => [...new Set(items.filter(Boolean))].slice(0, max)
   const locations = []
   const moments = []
@@ -739,7 +740,7 @@ function buildDailyStatsForFacts(db, period) {
     ? Boolean(String(review.win || '').trim() || String(review.blocker || '').trim() || String(review.tomorrow_task || '').trim())
     : false
   const hasOutcome = db.one(
-    "SELECT COUNT(*) AS count FROM focus_sessions WHERE status = 'completed' AND ended_at >= ? AND ended_at < ? AND outcome IS NOT NULL AND outcome != '' AND TRIM(outcome) != ''",
+    "SELECT COUNT(*) AS count FROM focus_sessions WHERE status = 'completed' AND active_seconds >= 60 AND ended_at >= ? AND ended_at < ? AND outcome IS NOT NULL AND outcome != '' AND TRIM(outcome) != ''",
     [period.periodStart, period.periodEnd],
   ).count > 0
   const discoveries = db.all(`SELECT d.kind, COALESCE(r.name, n.name) AS name
@@ -776,7 +777,7 @@ function buildWeeklyStatsForFacts(db, period) {
     .map((item) => String(item || '').trim())
     .find(Boolean) || null
   const hasOutcome = db.one(
-    "SELECT COUNT(*) AS count FROM focus_sessions WHERE status = 'completed' AND ended_at >= ? AND ended_at < ? AND outcome IS NOT NULL AND outcome != '' AND TRIM(outcome) != ''",
+    "SELECT COUNT(*) AS count FROM focus_sessions WHERE status = 'completed' AND active_seconds >= 60 AND ended_at >= ? AND ended_at < ? AND outcome IS NOT NULL AND outcome != '' AND TRIM(outcome) != ''",
     [period.periodStart, period.periodEnd],
   ).count > 0
   const discoveries = db.all(`SELECT d.kind, COALESCE(r.name, n.name) AS name
@@ -966,7 +967,7 @@ function computeDailyHourly(db, period) {
   const intervals = db.all(
     `SELECT i.started_at, i.ended_at FROM focus_intervals i
      JOIN focus_sessions s ON s.id = i.session_id
-     WHERE s.status = 'completed' AND s.ended_at >= ? AND s.ended_at < ?`,
+     WHERE s.status = 'completed' AND s.active_seconds >= 60 AND s.ended_at >= ? AND s.ended_at < ?`,
     [period.periodStart, period.periodEnd],
   )
   if (typeof process !== 'undefined' && process.env?.VITE_DEV_SERVER_URL) {

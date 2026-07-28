@@ -1599,11 +1599,13 @@ class StudyDatabase {
   }
 
   // Lightweight expedition for brief/short — no economic rewards, no pity, narrative only.
+  // A brief return (< 60s) is deliberately ephemeral: it can close gracefully
+  // in the UI but never enters the adventure log or observatory data.
   // Knowledge relic is created only if outcome is non-empty AND returnKind is at least 'short'.
   // Completed expedition record ≠ formal expedition; formal threshold is active_seconds >= 300.
   createLightweightExpedition({ sessionId, activeSeconds, returnKind, companionId, content, outcome, blocker, nextStep, createdAt }) {
     const existing = this.getExpedition(sessionId)
-    if (existing) return { ...existing, returnKind: getReturnKind(activeSeconds) }
+    if (existing && returnKind !== 'brief') return { ...existing, returnKind: getReturnKind(activeSeconds) }
 
     const rolled = rollLightweightExpedition({ sessionId, activeSeconds, returnKind })
 
@@ -1625,17 +1627,19 @@ class StudyDatabase {
       newCompanion: null,
     }
 
-    this.run(`INSERT INTO expeditions (session_id, tier_id, location, event_text, rewards_json, rare_found, companion_found_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-      sessionId,
-      rolled.tier.id,
-      rolled.location,
-      rolled.event,
-      JSON.stringify(row),
-      rolled.rareFound ? 1 : 0,
-      null,
-      createdAt,
-    ], false)
+    if (returnKind !== 'brief') {
+      this.run(`INSERT INTO expeditions (session_id, tier_id, location, event_text, rewards_json, rare_found, companion_found_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+        sessionId,
+        rolled.tier.id,
+        rolled.location,
+        rolled.event,
+        JSON.stringify(row),
+        rolled.rareFound ? 1 : 0,
+        null,
+        createdAt,
+      ], false)
+    }
 
     let knowledgeRelic = null
     const cleanOutcome = String(outcome || '').trim()
@@ -2128,7 +2132,7 @@ class StudyDatabase {
   getCompletedStats(start, end) {
     const systemDefaultAreaId = this.one("SELECT value FROM settings WHERE key = 'system_default_area_id'")?.value || null
     const sessions = this.all(
-      "SELECT s.active_seconds, s.area_id, a.name AS area_name, a.color AS area_color FROM focus_sessions s LEFT JOIN areas a ON a.id = s.area_id WHERE s.status = 'completed' AND s.ended_at >= ? AND s.ended_at < ?",
+      "SELECT s.active_seconds, s.area_id, a.name AS area_name, a.color AS area_color FROM focus_sessions s LEFT JOIN areas a ON a.id = s.area_id WHERE s.status = 'completed' AND s.active_seconds >= 60 AND s.ended_at >= ? AND s.ended_at < ?",
       [start, end],
     )
     const totalActiveSeconds = sessions.reduce((sum, s) => sum + Number(s.active_seconds || 0), 0)
@@ -2750,7 +2754,7 @@ class StudyDatabase {
       FROM focus_sessions s
       LEFT JOIN tasks t ON t.id = s.task_id
       LEFT JOIN areas a ON a.id = s.area_id
-      WHERE s.status = 'completed'
+      WHERE s.status = 'completed' AND s.active_seconds >= 60
       ORDER BY s.ended_at DESC LIMIT ?`, [Math.max(1, Math.min(Number(limit) || 80, 200))])
     if (!sessions.length) return []
     const ids = sessions.map((s) => `'${s.id}'`).join(',')

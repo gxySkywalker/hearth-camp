@@ -489,7 +489,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
               <p className="return-brief-duration">
                 {formatDuration(stopResult?.session?.active_seconds ?? 0)}
                 {expedition.returnKind === 'brief'
-                  ? ' · 已记入旅途'
+                  ? ' · 未记入冒险日志与天文台'
                   : showRelicContent
                     ? ' · 知识遗物已归档'
                     : ' · 已收入冒险日志'}
