@@ -34,6 +34,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "src/data/**/*",
       "assets/branding/app-icon.png",
       "package.json"
     ],
@@ -55,7 +56,8 @@
     "pixi.js": "^8.19.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.14.1",
+    "undici": "^7.28.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

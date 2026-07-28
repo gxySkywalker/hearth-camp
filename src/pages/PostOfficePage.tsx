@@ -4,6 +4,9 @@ import { Icon } from '../components/Icon'
 import { LetterViewer } from '../components/LetterViewer'
 import { CATEGORY_LABELS, canViewObservatory, observatoryLinkLabel, type MockCategory, type MockLetter, type ObservatoryTarget } from '../lib/mailMock'
 import { playUISound } from '../lib/audio'
+import mailReadImage from '../../assets/art/mail/mail_read.png'
+import mailSpecialImage from '../../assets/art/mail/mail_special.png'
+import mailUnreadImage from '../../assets/art/mail/mail_unread.png'
 
 // ── IPC-derived letter → UI-compatible MockLetter adapter ─────
 
@@ -357,9 +360,11 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
           const isSelected = selectedId === letter.id
           const replied = hasValue(letter)
           const isSpecial = letter.category === 'festival' || letter.category === 'memorial'
-          const envSrc = !unread ? 'assets/art/mail/mail_read.png'
-            : isSpecial ? 'assets/art/mail/mail_special.png'
-            : 'assets/art/mail/mail_unread.png'
+          // Importing the artwork makes Vite copy it into the packaged renderer.
+          // A plain runtime path worked in development but was absent from app.asar.
+          const envSrc = !unread ? mailReadImage
+            : isSpecial ? mailSpecialImage
+            : mailUnreadImage
           return (
             <button
               key={letter.id}

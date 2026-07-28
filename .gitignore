@@ -7,6 +7,13 @@ coverage/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+secret.bin
+.env
+.env.*
 assets/audio/bgm/*.mp3
 assets/audio/bgm/*.wav
 assets/audio/bgm/*.ogg
