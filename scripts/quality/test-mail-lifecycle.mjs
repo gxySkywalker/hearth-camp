@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
-const { StudyDatabase } = require('../electron/database.cjs')
+const { StudyDatabase } = require('../../electron/database.cjs')
 
 const dir = mkdtempSync(join(tmpdir(), 'growth-arc-mail-test-'))
 console.log(`Temp DB: ${dir}`)

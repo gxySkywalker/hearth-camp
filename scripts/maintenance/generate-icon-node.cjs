@@ -9,9 +9,9 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" vi
 <circle cx="118" cy="352" r="27" fill="#111726" stroke="#8b9cff" stroke-width="12"/><path d="m386 78 12 31 31 12-31 12-12 31-12-31-31-12 31-12Z" fill="#d8ddff"/><circle cx="386" cy="121" r="7" fill="#79d8b5"/>
 </svg>`
 
-const outputDir = path.join(__dirname, '..', 'assets')
+const outputDir = path.join(__dirname, '..', '..', 'assets')
 fs.mkdirSync(outputDir, { recursive: true })
-sharp(Buffer.from(svg)).png().toFile(path.join(outputDir, 'icon.png')).catch((error) => {
+sharp(Buffer.from(svg)).png().toFile(path.join(outputDir, 'branding', 'generated-icon-draft.png')).catch((error) => {
   console.error(error)
   process.exitCode = 1
 })

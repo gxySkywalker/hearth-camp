@@ -91,8 +91,10 @@ export interface Companion {
     habit: string
     quirk: string
   }
-  memories: Array<{ kind: 'first' | 'journey' | 'habit'; text: string; at: number }>
+  memories: Array<{ kind: 'first' | 'journey' | 'habit' | 'growth'; text: string; at: number }>
   is_active: number
+  is_ill: number
+  ill_since?: number | null
   met_at: number
   last_adventure_at: number | null
   species: CompanionSpecies
@@ -256,6 +258,13 @@ export interface ExpeditionResult {
   activeCompanion: Companion | null
   newCompanion: Companion | null
   growthEvent?: CompanionGrowthEvent | null
+  illness?: { companionId: string; nickname: string } | null
+  caravan?: {
+    chance: number
+    greeting: string
+    items: Array<{ item: LootItem; price: number; sold: boolean }>
+  } | null
+  bard?: { chance: number; greeting: string } | null
   knowledgeRelic: KnowledgeRelic | null
   returnKind?: 'brief' | 'short' | 'expedition' | 'deep'
   createdAt?: number
@@ -367,6 +376,7 @@ export interface GrowthArcApi {
     deleteArea: (id: string) => Promise<void>
     createGoal: (data: { areaId: string; title: string; description?: string; dueDate?: string | null }) => Promise<Goal>
     updateGoal: (id: string, data: { title?: string; description?: string }) => Promise<Goal>
+    deleteGoal: (id: string) => Promise<void>
     archiveGoal: (id: string) => Promise<void>
     restoreGoal: (id: string) => Promise<Goal>
     createTask: (data: { areaId: string; goalId?: string | null; title: string; notes?: string }) => Promise<Task>
@@ -387,6 +397,7 @@ export interface GrowthArcApi {
       session: FocusSession; xpAwarded: number; unlocked: Achievement[]; expedition: ExpeditionResult
       primaryTask: { taskId: string | null; completed: boolean; xpAwarded: number; alreadyAwarded: boolean; reason?: string }
       contributedTasks: Array<{ taskId: string; title: string; completed: boolean; xpAwarded: number; alreadyAwarded: boolean; reason: string }>
+      levelUps: Array<{ level: number; rewards: Array<{ itemId: string; quantity: number }> }>
     }>
     cancel: (id: string) => Promise<null>
   }
@@ -398,6 +409,10 @@ export interface GrowthArcApi {
     markGrowthSeen: (id: string) => Promise<CompanionGrowthEvent>
     evolve: (id: string, pathId: string) => Promise<Companion>
   }
+  caravan: {
+    buy: (sessionId: string, slotIndex: number) => Promise<ExpeditionResult>
+  }
+  bard: { claim: (sessionId: string) => Promise<any>; list: () => Promise<any[]> }
   history: (limit?: number) => Promise<FocusSession[]>
   review: {
     daily: (date?: string) => Promise<DailyReviewData>
@@ -418,7 +433,13 @@ export interface GrowthArcApi {
     generate: (type: 'daily' | 'weekly', date: string) => Promise<{ report: AiReport; model: string }>
   }
   inventory: {
-    use: (itemId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null }>
+    use: (itemId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
+    useTarget: (itemId: string, companionId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
+  }
+  hearth: {
+    get: () => Promise<{ lit: boolean }>
+    setLit: (lit: boolean) => Promise<{ lit: boolean }>
+    craft: (recipeId: 'herbal_soup' | 'honey_amber') => Promise<{ lit: boolean; effect: string }>
   }
   observatory: {
     getDaily: (dateOrTimestamp?: number) => Promise<DailyObservatoryData>

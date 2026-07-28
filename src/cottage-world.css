@@ -107,6 +107,28 @@
 .cottage-dialogue-controls button:hover { color: #fff0d1; background: #4c2f20; }
 .cottage-dialogue-controls button.is-selected { color: #fff4d8; background: #704025; border-color: #e9b66f; box-shadow: inset 0 0 0 1px #9a6234, 0 0 0 1px rgba(38, 21, 13, .7); }
 
+.hearth-modal .modal-body { padding: 0; }
+.hearth-panel { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 16px; color: #ecd8b6; background: #38241a; border: 3px solid #825537; box-shadow: inset 0 0 0 2px #22140e; }
+.hearth-panel-flame { width: 46px; height: 46px; display: grid; place-items: center; color: #80624c; background: #241611; border: 2px solid #5e3b29; font-size: 25px; }
+.hearth-panel-flame.is-lit { color: #ffcf6b; background: #67351e; border-color: #e49b43; box-shadow: 0 0 12px rgba(239, 141, 44, .52), inset 0 0 0 2px #9b5128; animation: hearth-pixel-flicker 1.15s steps(2,end) infinite; }
+.hearth-panel small, .hearth-recipes small { color: #c69e77; font-size: 10px; }
+.hearth-panel h3 { margin: 3px 0; color: #fff0cd; font-size: 16px; }
+.hearth-panel p, .hearth-recipes p { margin: 0; color: #d8c0a0; font-size: 11px; line-height: 1.55; }
+.hearth-recipes { display: grid; gap: 8px; padding: 12px 0; }
+.hearth-recipes article { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 9px; padding: 10px 12px; background: #f1e2c7; border: 2px solid #c79c68; box-shadow: inset 0 0 0 2px #fff3da; }
+.hearth-recipes article > span { width: 30px; height: 30px; display: grid; place-items: center; color: #b85b2d; background: #e3bd83; border: 1px solid #ad7549; }
+.hearth-recipes strong { display: block; color: #563722; font-size: 13px; }
+.hearth-recipes .button { min-width: 52px; }
+@keyframes hearth-pixel-flicker { 50% { transform: translateY(-1px); filter: brightness(1.12); } }
+.poetry-shelf { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px; max-height:56vh; overflow:auto; background:#ead7b1; }
+.poetry-shelf article { padding:13px; color:#513523; background:#fff4dc; border:2px solid #c69b65; box-shadow:inset 0 0 0 2px #f1dfba; }
+.poetry-shelf small { color:#a26b3d; font-size:10px; }.poetry-shelf pre { margin:9px 0; white-space:pre-wrap; font:inherit; line-height:1.7; }.poetry-shelf strong { font-size:11px; }.poetry-shelf p { margin:8px 0 0; color:#806047; font-size:11px; line-height:1.6; }
+.cottage-backpack-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:56vh; overflow:auto; padding:13px; background:#e9d5ac; }
+.cottage-backpack-item { width:100%; display:grid; grid-template-columns:38px 1fr auto; gap:9px; align-items:start; padding:10px; text-align:left; color:#573821; background:#fff1d7; border:2px solid #c79b65; box-shadow:inset 0 0 0 2px #f8e7c5; font:inherit; }.cottage-backpack-item.can-use { cursor:pointer; }.cottage-backpack-item.can-use:hover,.cottage-backpack-item.can-use:focus { background:#fff8e7; border-color:#ad6333; outline:none; }
+.cottage-backpack-item > span { display:grid; place-items:center; width:31px; height:31px; color:#a75d31; background:#e2bd83; border:1px solid #aa7548; }.cottage-backpack-item.rare > span,.cottage-backpack-item.precious > span { color:#d58b35; }
+.cottage-backpack-item small { color:#a36b3c; font-size:9px; }.cottage-backpack-item strong { display:block; font-size:13px; }.cottage-backpack-item p { margin:3px 0 0; color:#806047; font-size:10px; line-height:1.5; }.cottage-backpack-item b { color:#9a542f; font-size:12px; }.cottage-backpack-item em { display:block; margin-top:5px; color:#b65e31; font-size:10px; font-style:normal; }
+.cottage-item-use-modal .field-label { display:grid; gap:5px; padding:13px 16px 0; color:#70452c; font-size:11px; }.cottage-item-use-modal select { min-height:30px; color:#4b3021; background:#fff2d8; border:2px solid #c89b65; font:inherit; }
+
 .overview-expedition-card {
   padding: 20px 22px;
   display: flex;
@@ -122,6 +144,26 @@
 .overview-expedition-card h2 { margin: 5px 0; color: #fff1d3; font-size: 23px; }
 .overview-expedition-card p { margin: 0; color: #cbb398; font-size: 12px; }
 .overview-expedition-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+
+/* 手绘地图碎片：像旅行桌上展开的一页旧纸，而不是普通的消耗品确认框。 */
+.map-synthesis-modal .modal-body { min-width: min(520px, 82vw); }
+.map-synthesis-panel, .map-synthesis-reveal { position: relative; overflow: hidden; padding: 24px; border: 2px solid #c69858; background: #f7e8c7; box-shadow: inset 0 0 0 4px #fff4dc, inset 0 0 0 6px #dfbc7b; }
+.map-synthesis-panel::after, .map-synthesis-reveal::after { content: ''; position: absolute; inset: 12px; pointer-events: none; opacity: .34; background: repeating-linear-gradient(90deg, transparent 0 38px, #c69759 39px 40px), repeating-linear-gradient(0deg, transparent 0 29px, #c69759 30px 31px); }
+.map-synthesis-panel > *, .map-synthesis-reveal > * { position: relative; z-index: 1; }
+.map-synthesis-panel { display: grid; grid-template-columns: 52px 1fr auto; gap: 4px 14px; align-items: center; }
+.map-synthesis-icon { display: grid; width: 48px; height: 48px; place-items: center; color: #9f5f2c; border: 2px solid #b47a3c; background: #efd398; box-shadow: inset 0 0 0 2px #f9e8bb; }
+.map-synthesis-panel small, .map-synthesis-reveal small { color: #a2622f; font-size: 12px; }
+.map-synthesis-panel h3, .map-synthesis-reveal h3 { margin: 2px 0 4px; color: #442719; font-size: 23px; }
+.map-synthesis-panel p, .map-synthesis-reveal p { margin: 0; color: #765239; font-size: 13px; line-height: 1.7; }
+.map-synthesis-count { align-self: start; color: #784320; font-size: 28px; white-space: nowrap; }
+.map-synthesis-count i { color: #a98560; font-size: 15px; font-style: normal; }
+.map-synthesis-fragments { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-top: 15px; padding-top: 13px; border-top: 2px dashed #c59a5f; }
+.map-synthesis-fragments span { display: grid; min-height: 28px; place-items: center; color: #d7ba88; border: 1px solid #d5b273; background: #f9edcf; font-size: 15px; }
+.map-synthesis-fragments .is-filled { color: #fff1c7; border-color: #87512b; background: #a86434; box-shadow: inset 0 0 0 2px #c88548; }
+.map-synthesis-reveal { display: grid; justify-items: center; text-align: center; min-height: 230px; padding-top: 38px; background: radial-gradient(circle at 50% 38%, #fff4c8 0, #f4deb0 40%, #e8c684 100%); }
+.map-synthesis-reveal .map-synthesis-icon { width: 62px; height: 62px; margin-bottom: 11px; color: #fff0bd; border-color: #7b4826; background: #a96232; box-shadow: inset 0 0 0 3px #d7924c, 0 3px 0 #6b3d23; }
+.map-synthesis-reveal h3 { margin-top: 5px; font-size: 28px; }
+.map-synthesis-reveal p { max-width: 380px; }
 
 @media (max-width: 1180px) {
   .cottage-world-stage, .cottage-world-header { width: 100%; min-width: 0; }

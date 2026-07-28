@@ -8,7 +8,7 @@ import { friendlyError } from '../lib/format'
 import type { Structure, Task } from '../types'
 
 type FormType = 'area' | 'goal' | 'task' | 'area-manage' | null
-type StatusFilter = 'active' | 'done' | 'archived'
+type StatusFilter = 'active' | 'done'
 
 const COLORS = [
   { key: 'hearth', name: '壁炉橙', value: '#c9783d' },
@@ -42,6 +42,7 @@ export function PlanPage() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   const [duplicate, setDuplicate] = useState<{ title: string; areaName: string; goalName: string | null } | null>(null)
+  const [goalToDelete, setGoalToDelete] = useState<{ id: string; title: string } | null>(null)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const menuBtnRef = useRef<Map<string, HTMLButtonElement>>(new Map())
   const dragRef = useRef<{ id: string } | null>(null)
@@ -76,7 +77,6 @@ export function PlanPage() {
 
   const activeTasks = useMemo(() => (managed?.tasks || []).filter(t => t.status === 'todo' || t.status === 'doing'), [managed])
   const doneTasks = useMemo(() => (managed?.tasks || []).filter(t => t.status === 'done'), [managed])
-  const archivedGlobal = useMemo(() => (managed?.tasks || []).filter(t => t.status === 'archived'), [managed])
   const counts = useMemo(() => managed ? Object.fromEntries(managed.areas.map(a => [a.id, activeTasks.filter(t => t.area_id === a.id).length])) : {}, [managed, activeTasks])
 
   if (!globalStructure) return null
@@ -88,7 +88,7 @@ export function PlanPage() {
   const activeAreas = managed.areas.filter(a => !a.archived)
   const archivedAreas = managed.areas.filter(a => a.archived)
   const goals = managed.goals.filter(g => g.area_id === areaId && g.status !== 'archived')
-  const filtered = statusFilter === 'active' ? activeTasks : statusFilter === 'done' ? doneTasks : archivedGlobal
+  const filtered = statusFilter === 'active' ? activeTasks : doneTasks
   const displayed = view === 'overview' || statusFilter !== 'active'
     ? filtered
     : filtered.filter(t => t.area_id === areaId && (!selectedGoal || t.goal_id === selectedGoal))
@@ -133,14 +133,6 @@ export function PlanPage() {
       await Promise.all([refresh(), loadManaged()])
     } catch (e) { notify(friendlyError(e), 'error') }
   }
-  const archiveTask = async (id: string) => {
-    try { await window.growthArc.structure.updateTask(id, { status: 'archived' }); notify('已归档', 'info'); await Promise.all([refresh(), loadManaged()]) }
-    catch (e) { notify(friendlyError(e), 'error') }
-  }
-  const restoreTask = async (id: string) => {
-    try { const r = await window.growthArc.structure.restoreTask(id); notify(r.status === 'done' ? '已恢复至已完成' : '已恢复至进行中', 'success'); await Promise.all([refresh(), loadManaged()]) }
-    catch (e) { notify(friendlyError(e), 'error') }
-  }
   const reopenTask = async (id: string) => {
     try { await window.growthArc.structure.reopenTask(id); notify('已重新打开', 'success'); await Promise.all([refresh(), loadManaged()]) }
     catch (e) { notify(friendlyError(e), 'error') }
@@ -148,6 +140,12 @@ export function PlanPage() {
   const deleteTask = async (id: string) => {
     if (!window.confirm('确定删除这个路标吗？此操作不可撤销。')) return
     try { await window.growthArc.structure.deleteTask(id); notify('已删除', 'info'); await Promise.all([refresh(), loadManaged()]) }
+    catch (e) { notify(friendlyError(e), 'error') }
+  }
+  const deleteGoal = async (id: string) => {
+    const goal = managed.goals.find(item => item.id === id)
+    if (!goal) return
+    try { await window.growthArc.structure.deleteGoal(id); setSelectedGoal(null); notify('目标分组已移除，路标仍留在地图上。', 'success'); await Promise.all([refresh(), loadManaged()]) }
     catch (e) { notify(friendlyError(e), 'error') }
   }
 
@@ -193,7 +191,6 @@ export function PlanPage() {
     if (taskGoalName(t)) parts.push(taskGoalName(t)!)
     if (isActive && t.status === 'doing') parts.push('进行中')
     if (isDone && t.completed_at) parts.push(new Date(t.completed_at).toLocaleDateString('zh-CN'))
-    if (!isActive && !isDone) parts.push('已归档')
     return parts.join(' · ')
   }
   const modalTitle = form === 'area' ? (editId ? '编辑方向' : '新建旅途方向')
@@ -229,7 +226,6 @@ export function PlanPage() {
         <div className="cartography-tabs">
           <button className={statusFilter === 'active' ? 'active' : ''} onClick={() => { setStatusFilter('active'); setHelpOpen(false) }}>进行中 {activeTasks.length}</button>
           <button className={statusFilter === 'done' ? 'active' : ''} onClick={() => { setStatusFilter('done'); setHelpOpen(false) }}>已完成 {doneTasks.length}</button>
-          <button className={statusFilter === 'archived' ? 'active' : ''} onClick={() => { setStatusFilter('archived'); setHelpOpen(false) }}>已归档 {archivedGlobal.length}</button>
           <span style={{position:'relative',marginLeft:'auto'}}>
             <button ref={helpBtnRef} className="text-button" onClick={() => setHelpOpen(v => !v)}>帮助</button>
             {helpOpen && createPortal(<HelpPopover onClose={() => setHelpOpen(false)} anchor={helpBtnRef.current?.getBoundingClientRect()} />, document.body)}
@@ -239,6 +235,7 @@ export function PlanPage() {
         {view === 'map' && statusFilter === 'active' && <div className="cartography-map-head">
           <span className="color-dot large" style={{ background: area?.color }} /><div><span className="eyebrow">当前方向</span><h2>{area?.name || '未命名区域'}</h2></div>
           <button className="button button-secondary button-small" onClick={() => openForm('goal')}><Icon name="flag" size={14} />新建目标分组</button>
+          {selectedGoal && <button className="button button-ghost button-small" onClick={() => { const goal = goals.find(item => item.id === selectedGoal); if (goal) setGoalToDelete(goal) }}>删除当前分组</button>}
         </div>}
         {view === 'map' && statusFilter === 'active' && goals.length > 0 && <div className="goal-tabs">
           <button className={!selectedGoal ? 'active' : ''} onClick={() => setSelectedGoal(null)}>全部路标</button>
@@ -269,12 +266,11 @@ export function PlanPage() {
               <div className="planner-task-actions">
                 {isActive && <button className={isTodayTask ? 'task-play' : 'task-play-secondary'} onClick={() => startFocus(task.id)}><Icon name="play" size={15} />出发</button>}
                 {isDone && <button className="planner-task-mini" onClick={() => reopenTask(task.id)}>重新打开</button>}
-                {!isActive && !isDone && <button className="planner-task-mini" onClick={() => restoreTask(task.id)}>恢复路标</button>}
                 <button className="planner-task-menu-btn" ref={el => { if (el) menuBtnRef.current.set(task.id, el) }} onClick={e => { e.stopPropagation(); openMenuAt(task.id, menuBtnRef.current.get(task.id) || null) }} title="更多">⋯</button>
               </div>
             </article>
           }) : <div className="empty-state map-empty">
-            <Icon name="plan" size={30} /><strong>{statusFilter === 'active' ? '还没有路标' : statusFilter === 'done' ? '还没有完成的路标' : '还没有归档的路标'}</strong>
+            <Icon name="plan" size={30} /><strong>{statusFilter === 'active' ? '还没有路标' : '还没有完成的路标'}</strong>
           </div>}
         </div>
       </main>
@@ -286,12 +282,18 @@ export function PlanPage() {
         {statusFilter === 'active' && <button onClick={() => { const id = openMenu; setOpenMenu(null); move(id, -1) }}>上移</button>}
         {statusFilter === 'active' && <button onClick={() => { const id = openMenu; setOpenMenu(null); move(id, 1) }}>下移</button>}
         <button onClick={() => { const id = openMenu; setOpenMenu(null); openForm('task', id) }}>编辑</button>
-        {statusFilter === 'active' && <button onClick={() => { const id = openMenu; setOpenMenu(null); archiveTask(id) }}>移至归档</button>}
         {statusFilter === 'done' && <button onClick={() => { const id = openMenu; setOpenMenu(null); reopenTask(id) }}>重新打开</button>}
-        {statusFilter === 'done' && <button onClick={() => { const id = openMenu; setOpenMenu(null); archiveTask(id) }}>移至归档</button>}
-        {statusFilter === 'archived' && <button onClick={() => { const id = openMenu; setOpenMenu(null); restoreTask(id) }}>恢复路标</button>}
         <button className="danger" onClick={() => { const id = openMenu; setOpenMenu(null); deleteTask(id) }}>删除</button>
       </div>, document.body)}
+
+    {goalToDelete && <Modal title="移除目标分组" onClose={() => setGoalToDelete(null)}>
+      <div className="modal-body">
+        <span className="day-ribbon">整理地图</span>
+        <h3 style={{margin:'12px 0 8px'}}>移除「{goalToDelete.title}」？</h3>
+        <p style={{margin:0,color:'var(--muted)',fontSize:13,lineHeight:1.7}}>其中的路标会继续留在地图上，只是不再归入这个分组。已经走过的路与记录都不会改变。</p>
+      </div>
+      <footer className="modal-footer"><button className="button button-ghost" onClick={() => setGoalToDelete(null)}>保留分组</button><button className="button button-primary" onClick={() => { const id = goalToDelete.id; setGoalToDelete(null); void deleteGoal(id) }}>移除分组</button></footer>
+    </Modal>}
 
     {form && form !== 'area-manage' && <Modal title={modalTitle} onClose={() => setForm(null)}>
       <div className="modal-body form-stack">

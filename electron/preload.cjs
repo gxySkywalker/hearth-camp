@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('growthArc', {
     deleteArea: (id) => invoke('area:delete', id),
     createGoal: (data) => invoke('goal:create', data),
     updateGoal: (id, data) => invoke('goal:update', { id, data }),
+    deleteGoal: (id) => invoke('goal:delete', id),
     archiveGoal: (id) => invoke('goal:archive', id),
     restoreGoal: (id) => invoke('goal:restore', id),
     createTask: (data) => invoke('task:create', data),
@@ -66,7 +67,17 @@ contextBridge.exposeInMainWorld('growthArc', {
   },
   inventory: {
     use: (itemId) => invoke('inventory:use', itemId),
+    useTarget: (itemId, companionId) => invoke('inventory:use-target', { itemId, companionId }),
   },
+  hearth: {
+    get: () => invoke('hearth:get'),
+    setLit: (lit) => invoke('hearth:set-lit', lit),
+    craft: (recipeId) => invoke('hearth:craft', recipeId),
+  },
+  caravan: {
+    buy: (sessionId, slotIndex) => invoke('caravan:buy', { sessionId, slotIndex }),
+  },
+  bard: { claim: (sessionId) => invoke('bard:claim', sessionId), list: () => invoke('bard:list') },
   observatory: {
     getDaily: (dateOrTimestamp) => invoke('observatory:get-daily', dateOrTimestamp),
     getWeekly: (dateOrTimestamp) => invoke('observatory:get-weekly', dateOrTimestamp),

@@ -10,7 +10,7 @@
 ```
 Use case: Angel Post Office page header — warm medieval interior room
 Asset type: static environment background (opaque PNG)
-Existing world: 成长轨迹 cottage interior (warm browns, stone, wood beams, upper-left light source)
+Existing world: 炉火营地 cottage interior (warm browns, stone, wood beams, upper-left light source)
 Logical resolution: 512 x 112 px
 Output resolution: 1024 x 224 px (2x nearest-neighbor)
 Perspective: 3/4 top-down, consistent with cottage_room_backdrop

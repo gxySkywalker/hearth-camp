@@ -1,7 +1,7 @@
 // AI narrative integration test — uses real API Key from user's config
 import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
-const { StudyDatabase } = require('../electron/database.cjs')
+const { StudyDatabase } = require('../../electron/database.cjs')
 const path = require('path')
 
 const dataDir = path.join(process.env.APPDATA || process.env.USERPROFILE + '/AppData/Roaming', 'growth-arc')

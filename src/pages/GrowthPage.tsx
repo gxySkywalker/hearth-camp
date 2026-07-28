@@ -55,6 +55,7 @@ export function GrowthPage() {
   const [renaming, setRenaming] = useState(false)
   const [pendingGrowth, setPendingGrowth] = useState<CompanionGrowthEvent | null>(null)
   const [itemToUse, setItemToUse] = useState<InventoryEntry | null>(null)
+  const [itemTargetId, setItemTargetId] = useState('')
   const [usingItem, setUsingItem] = useState(false)
   useEffect(() => {
     if (dashboard?.world.pendingGrowthEvent) setPendingGrowth(dashboard.world.pendingGrowthEvent)
@@ -72,6 +73,11 @@ export function GrowthPage() {
   const isEmberDrake = selected?.species_id === 'ember_drake'
   const progress = selected && chapter ? selected.stage >= 2 ? 100 : Math.min(100, selected.bond_xp / chapter.next * 100) : 0
   const togetherDays = selected ? daysTogether(selected.met_at) : 0
+  const growthForms = selected ? [0, 1, 2].map((stage) => ({
+    ...selected,
+    stage,
+    evolution_path: stage === 2 ? selected.evolution_path : '',
+  })) : []
 
   const setAsHomeCompanion = async (id: string) => {
     try {
@@ -110,7 +116,11 @@ export function GrowthPage() {
     if (!itemToUse || usingItem) return
     try {
       setUsingItem(true)
-      const result = await window.growthArc.inventory.use(itemToUse.item_id)
+      const targeted = itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber'
+      if (targeted && !itemTargetId) throw new Error('请先选择一位伙伴')
+      const result = targeted
+        ? await window.growthArc.inventory.useTarget(itemToUse.item_id, itemTargetId)
+        : await window.growthArc.inventory.use(itemToUse.item_id)
       notify(result.effect, 'success')
       if (result.growthEvent) setPendingGrowth(result.growthEvent)
       setItemToUse(null)
@@ -131,23 +141,24 @@ export function GrowthPage() {
           {companions.owned.map((companion) => <button key={companion.id} onClick={() => setSelectedId(companion.id)} className={selected?.id === companion.id ? 'selected' : ''}>
             <PixelCompanion companion={companion} size="small" />
             <span><strong>{companion.nickname}</strong><small>{companion.stageName}</small></span>
-            {companion.is_active ? <i title="正在炉火小屋等候">⌂</i> : null}
+            {companion.is_ill ? <i title="正在休养">休养中</i> : companion.is_active ? <i title="正在炉火小屋等候">⌂</i> : null}
           </button>)}
         </div>
         <p className="camp-v2-dex-note">尚未相遇的身影，不需要追赶。路走到那里时，自会听见新的脚步声。</p>
       </aside>
 
       {selected && chapter && <article className="camp-v2-profile">
-        <div className={`camp-v2-portrait ${selectedPortrait ? 'has-portrait' : ''}`}>
+        <div className={`camp-v2-portrait species-${selected.species_id} ${selectedPortrait ? 'has-portrait' : ''}`}>
           <div className="camp-v2-portrait-copy"><span>{isChestnut ? '最初的同行伙伴' : isMossSprout ? '林缘的同行者' : isNightLightCat ? '夜灯旁的朋友' : isDuskOwl ? '夜色里的同行者' : isCloudRabbit ? '丘陵上的同行者' : isEmberDrake ? '远山的同行者' : '旅途中的朋友'}</span><strong>{isChestnut ? '旧路的铃声，还在炉火旁轻轻响。' : isMossSprout ? '风吹开落叶时，它总会停下来多看一会儿。' : isNightLightCat ? '它的尾灯没有催促什么，只安静地亮在窗边。' : isDuskOwl ? '有些还没说出口的念头，也值得被安静地留在夜色里。' : isCloudRabbit ? '云影慢慢移过草坡时，它也不急着起身。' : isEmberDrake ? '它把收好的翼膜轻轻贴近身侧，看向还没有画进地图的远方。' : '每一次相遇，都有它自己的来处。'}</strong></div>
           {selectedPortrait ? <img className="companion-camp-portrait" src={selectedPortrait} alt={`${selected.nickname}的营地肖像`} /> : <PixelCompanion companion={selected} />}
           <div className="camp-v2-portrait-floor" />
         </div>
 
         <div className="camp-v2-profile-copy">
-          <span className="camp-v2-species">{selected.stageName} · {selected.species.name}</span>
+          <span className="camp-v2-species">{selected.stageName} · {selected.species.kind}</span>
           <div className="camp-v2-name-row"><h2>{selected.nickname}</h2><button className="camp-v2-rename" onClick={openRename} title="给伙伴改名">改名</button></div>
           <p className="camp-v2-stage">{selected.stageName} <span>·</span> 羁绊章节：{chapter.name}</p>
+          {Boolean(selected.is_ill) && <p className="camp-v2-home-mark">✚ 它正在小屋里休养，暂时不会出征或在炉火旁等候。</p>}
           <div className="camp-v2-together"><span>与你同行第 {togetherDays} 天</span><small>{formatDay(selected.met_at)}，这段同行被记在旅途的第一页。</small></div>
           <p className="camp-v2-introduction">{isChestnut ? chestnutIntroduction : isMossSprout ? mossSproutIntroduction : isNightLightCat ? nightLightCatIntroduction : isDuskOwl ? duskOwlIntroduction : selected.species.description}</p>
           <div className="camp-v2-home-note"><span>⌂</span><p>{selected.personalityProfile.habit}。{isMossSprout ? '在小屋里，它也会安静看着窗边的光影移动。' : isNightLightCat ? '在小屋里，它不必说话，只把尾灯留在离你不远的地方。' : isDuskOwl ? '在小屋里，它把翅膀轻轻收好，停在离夜风不远的地方。' : isCloudRabbit ? '在小屋里，它把耳朵贴在晒暖的地板上，等一阵风穿过门缝。' : isEmberDrake ? '在小屋里，它把翼膜收好，鼻尖的一点暖气很快和屋里的风混在一起。' : '在小屋里，它把这当作一件不必解释的小事。'}</p></div>
@@ -158,8 +169,8 @@ export function GrowthPage() {
             <p>{chapter.note}</p>
           </div>
 
-          {!selected.is_active && <button className="button button-primary" onClick={() => void setAsHomeCompanion(selected.id)}>让它在炉火小屋等候</button>}
-          {selected.is_active && <span className="camp-v2-home-mark">⌂ 正在炉火小屋等候你回来</span>}
+          {!selected.is_active && !selected.is_ill && <button className="button button-primary" onClick={() => void setAsHomeCompanion(selected.id)}>让它在炉火小屋等候</button>}
+          {Boolean(selected.is_active) && <span className="camp-v2-home-mark">⌂ 正在炉火小屋等候你回来</span>}
         </div>
       </article>}
     </section>
@@ -176,13 +187,13 @@ export function GrowthPage() {
       </article>
 
       <article className="parchment-card camp-v2-growth">
-        <header><div><span className="card-sigil">◇</span><div><small>成长，不是强化</small><h2>{isChestnut ? '栗子的长成' : '同行的长成'}</h2></div></div></header>
+        <header><div><span className="card-sigil">◇</span><div><small>成长，不是强化</small><h2>伙伴的成长</h2></div></div></header>
         <div className="camp-v2-growth-line">
-          <div className={selected.stage >= 0 ? 'reached' : ''}><i>01</i><strong>{isChestnut ? '炉尾' : selected.species.stages[0]}</strong><small>0 羁绊起</small></div>
+          <div className={selected.stage >= 0 ? 'reached' : ''}><i>01</i><span className="camp-v2-growth-form"><PixelCompanion companion={growthForms[0]} size="small" /></span><strong>{isChestnut ? '炉尾' : selected.species.stages[0]}</strong><small>0 羁绊起</small></div>
           <span />
-          <div className={selected.stage >= 1 ? 'reached' : ''}><i>02</i><strong>{isChestnut ? '栗鬃' : selected.species.stages[1]}</strong><small>100 羁绊</small></div>
+          <div className={selected.stage >= 1 ? 'reached' : ''}><i>02</i>{selected.stage >= 1 && <span className="camp-v2-growth-form"><PixelCompanion companion={growthForms[1]} size="small" /></span>}<strong>{isChestnut ? '栗鬃' : selected.species.stages[1]}</strong><small>100 羁绊</small></div>
           <span />
-          <div className={selected.stage >= 2 ? 'reached' : ''}><i>03</i><strong>{selected.stage >= 2 ? selected.stageName : '长成'}</strong><small>200 羁绊</small></div>
+          <div className={selected.stage >= 2 ? 'reached' : ''}><i>03</i>{selected.stage >= 2 && <span className="camp-v2-growth-form"><PixelCompanion companion={growthForms[2]} size="small" /></span>}<strong>{selected.stage >= 2 ? selected.stageName : '长成'}</strong><small>200 羁绊</small></div>
         </div>
         <p>{selected.stage >= 2 ? `${selected.nickname}在${formatDay(selected.growth_completed_at) || '那一天'}长成了「${selected.stageName}」。` : isChestnut ? '当羁绊抵达 200，它会在那一刻的天光里长成；白日、傍晚与夜晚，留下的是不同的陪伴方式，而非强弱。' : isMossSprout ? '当羁绊抵达 200，它会长成「森冠」；这不是更强，而是你们已经一起熟悉了森林的变化。' : isNightLightCat ? '当羁绊抵达 200，它会长成「夜璃」；不是为了照亮更远的路，而是让同处的夜色变得熟悉。' : '当羁绊抵达 200，它会在共同经历中长成更完整的自己。'}</p>
       </article>
@@ -196,13 +207,16 @@ export function GrowthPage() {
     <section className="camp-v2-bottom-grid">
       <article className="parchment-card">
         <header><div><span className="card-sigil">◇</span><div><small>伙伴图鉴</small><h2>仍在世界各处生活的朋友</h2></div></div></header>
-        <div className="catalog-grid">{companions.catalog.map((species) => <div className={species.discovered ? 'discovered' : 'unknown'} key={species.id}>
-          <span>{species.discovered ? '◆' : '?'}</span><strong>{species.discovered ? species.name : '尚未相遇'}</strong><small>{species.discovered ? species.kind : '也许会在某段旅途里留下踪迹'}</small>
-        </div>)}</div>
+        <div className="catalog-grid">{companions.catalog.map((species) => {
+          const companion = companions.owned.find((item) => item.species_id === species.id)
+          return <div className={species.discovered ? 'discovered' : 'unknown'} key={species.id}>
+            <span className="catalog-companion-icon">{companion ? <PixelCompanion companion={companion} size="small" /> : '?'}</span><strong>{species.discovered ? species.name : '尚未相遇'}</strong><small>{species.discovered ? species.kind : '也许会在某段旅途里留下踪迹'}</small>
+          </div>
+        })}</div>
       </article>
       <article className="parchment-card backpack-card">
         <header><div><span className="card-sigil">▣</span><div><small>共同背包</small><h2>带回小屋的东西</h2></div></div><span className="soft-count">{inventory.reduce((sum, entry) => sum + Number(entry.quantity), 0)} 件</span></header>
-        <div>{inventory.slice(0, 8).map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={setItemToUse} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回来的东西会被好好收在这里。</p>}</div>
+        <div>{inventory.slice(0, 8).map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回来���东西会被好好收在这里。</p>}</div>
       </article>
     </section>
 
@@ -218,6 +232,7 @@ export function GrowthPage() {
     </div>}
     {itemToUse && <Modal title={`使用「${itemToUse.item.name}」`} onClose={() => !usingItem && setItemToUse(null)} className="camp-v2-item-use-modal">
       <div className="modal-body camp-v2-item-use-body"><span><Icon name={itemToUse.item.icon} size={28} /></span><div><strong>{itemToUse.item.name}</strong><p>{getItemLore(itemToUse.item).effectLabel}</p><small>使用后会消耗 1 件。</small></div></div>
+      {(itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber') && <label className="field-label">交给谁<select value={itemTargetId} onChange={(event) => setItemTargetId(event.target.value)}><option value="">请选择伙伴</option>{companions.owned.filter((companion) => itemToUse.item_id !== 'herbal_soup' || companion.is_ill).map((companion) => <option key={companion.id} value={companion.id}>{companion.nickname}{companion.is_ill ? '（休养中）' : ''}</option>)}</select></label>}
       <footer className="modal-footer"><button className="button button-ghost" disabled={usingItem} onClick={() => setItemToUse(null)}>暂不使用</button><button className="button button-primary" disabled={usingItem} onClick={() => void useInventoryItem()}>{usingItem ? '正在使用…' : '确认使用'}</button></footer>
     </Modal>}
     {pendingGrowth && <CompanionGrowthCeremony event={pendingGrowth} onComplete={completeGrowthCeremony} />}

@@ -101,5 +101,42 @@
 .camp-v2-item-use-body strong { font-size: 16px; }
 .camp-v2-item-use-body p { margin: 5px 0; color: #855536; font-size: 13px; }
 .camp-v2-item-use-body small { color: var(--muted); font-size: 10px; }
+
+/* 伙伴肖像背景：以栖息环境承接肖像，而不是用统一的灰褐格子。 */
+.camp-v2-portrait.has-portrait { background: linear-gradient(180deg, #6c6d67 0 53%, #a58461 53% 69%, #684431 69%); }
+.camp-v2-portrait.species-hearth_hound { background: linear-gradient(180deg, #5e5148 0 49%, #a76f46 49% 64%, #553829 64%); }
+.camp-v2-portrait.species-moss_fox { background: linear-gradient(180deg, #5d7669 0 50%, #78936a 50% 66%, #4a4930 66%); }
+.camp-v2-portrait.species-glimmer_cat { background: linear-gradient(180deg, #2f3b58 0 51%, #66698a 51% 65%, #3d3550 65%); }
+.camp-v2-portrait.species-river_otter { background: linear-gradient(180deg, #537c86 0 46%, #83adb0 46% 64%, #4f6d62 64%); }
+.camp-v2-portrait.species-iron_badger { background: linear-gradient(180deg, #6b6962 0 48%, #96907d 48% 66%, #514b41 66%); }
+.camp-v2-portrait.species-moon_owl { background: linear-gradient(180deg, #353c55 0 50%, #64657a 50% 65%, #473b3b 65%); }
+.camp-v2-portrait.species-cloud_rabbit { background: linear-gradient(180deg, #a4b2b3 0 44%, #d8c38e 44% 66%, #8d7547 66%); }
+.camp-v2-portrait.species-ember_drake { background: linear-gradient(180deg, #605b58 0 46%, #8b7463 46% 65%, #493936 65%); }
+.camp-v2-portrait.has-portrait::before { opacity: .36; background: radial-gradient(circle at 16% 19%, rgba(255,244,204,.42) 0 2px, transparent 3px), radial-gradient(circle at 79% 30%, rgba(255,244,204,.26) 0 2px, transparent 3px), linear-gradient(90deg, transparent 49.5%, rgba(255,241,207,.12) 50%, transparent 50.5%), linear-gradient(rgba(255,241,207,.1) 49.5%, transparent 50.5%); background-size: 61px 61px, 87px 87px, 32px 32px, 32px 32px; }
+.camp-v2-portrait.species-river_otter.has-portrait::before { background: repeating-linear-gradient(0deg, rgba(228,251,241,.18) 0 2px, transparent 2px 13px), linear-gradient(90deg, transparent 49.5%, rgba(255,241,207,.12) 50%, transparent 50.5%); }
+.camp-v2-portrait.species-moss_fox.has-portrait::before, .camp-v2-portrait.species-cloud_rabbit.has-portrait::before { background: radial-gradient(ellipse at 18% 56%, rgba(241,226,160,.32) 0 2px, transparent 3px), radial-gradient(ellipse at 74% 50%, rgba(241,226,160,.22) 0 2px, transparent 3px), linear-gradient(90deg, transparent 49.5%, rgba(255,241,207,.12) 50%, transparent 50.5%); background-size: 47px 33px, 63px 44px, 32px 32px; }
+
+/* 图鉴里的朋友使用实际伙伴像素图，而不是通用菱形。 */
+.catalog-grid .catalog-companion-icon { overflow: visible; background: transparent; }
+.catalog-grid .catalog-companion-icon .pixel-companion { transform: scale(.78); transform-origin: center bottom; }
+.catalog-grid .catalog-companion-icon .hearth-hound-sprite-small { width: 38px; height: 38px; }
+
+/* 肖像区保留伙伴本身的像素细节，背景仅用对应环境色块衬托。 */
+.camp-v2-portrait::before, .camp-v2-portrait::after { display: none; }
+.camp-v2-portrait.has-portrait { background: #756f65; }
+.camp-v2-portrait.species-hearth_hound { background: #8b6247; }
+.camp-v2-portrait.species-moss_fox { background: #6f876d; }
+.camp-v2-portrait.species-glimmer_cat { background: #46506e; }
+.camp-v2-portrait.species-river_otter { background: #6d9ca3; }
+.camp-v2-portrait.species-iron_badger { background: #827d70; }
+.camp-v2-portrait.species-moon_owl { background: #4a4c66; }
+.camp-v2-portrait.species-cloud_rabbit { background: #b8bfad; }
+.camp-v2-portrait.species-ember_drake { background: #746663; }
+
+/* 已经走过的成长阶段，以实际阶段像素形态留在成长线上。 */
+.camp-v2-growth-form { display: grid; place-items: center; width: 44px; height: 38px; margin: 1px 0; }
+.camp-v2-growth-form .pixel-companion { transform: scale(.72); transform-origin: center bottom; }
+.camp-v2-growth-line > div:nth-of-type(2) .camp-v2-growth-form { margin-inline: auto; }
+.camp-v2-growth-line > div:nth-of-type(3) .camp-v2-growth-form { margin-left: auto; }
 @media (max-width: 900px) { .camp-v2-layout { grid-template-columns: 1fr; } .camp-v2-dex { order: 2; } .camp-v2-list { display: grid; grid-template-columns: repeat(2, 1fr); } .camp-v2-profile { grid-template-columns: 1fr; } .camp-v2-portrait { min-height: 310px; } .camp-v2-story-grid, .camp-v2-bottom-grid { grid-template-columns: 1fr; } }
 @media (max-width: 580px) { .camp-v2-profile-copy { padding: 25px 20px; } .camp-v2-memory-list { grid-template-columns: 1fr; } .camp-v2-list { grid-template-columns: 1fr; } .camp-v2-growth-line { grid-template-columns: 1fr; gap: 9px; } .camp-v2-growth-line > span { width: 2px; height: 14px; margin-left: 13px; } .camp-v2-growth-line > div, .camp-v2-growth-line > div:nth-of-type(2), .camp-v2-growth-line > div:nth-of-type(3) { text-align: left; } .camp-v2-growth-line > div:nth-of-type(2) i, .camp-v2-growth-line > div:nth-of-type(3) i { margin-inline: 0; } }

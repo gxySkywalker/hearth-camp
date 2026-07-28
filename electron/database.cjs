@@ -1,6 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
+const BARD_POEMS = require('../src/data/bard-poems.json')
 const initSqlJs = require('sql.js')
 const {
   ACHIEVEMENTS,
@@ -36,8 +37,13 @@ const {
 const {
   COMPANION_SPECIES,
   LOOT,
+  LOCATIONS,
+  MAP_FRAGMENT_LOCATIONS,
   rollExpedition,
   rollLightweightExpedition,
+  rollCaravanEncounter,
+  rollBardEncounter,
+  CARAVAN_PRICES,
   companionStage,
   evolutionReady,
   growthPathForCompanion,
@@ -66,8 +72,31 @@ const {
   WORLD_EDGES,
 } = require('./world-content.cjs')
 
-const PERSONALITY_TRAITS = ['活泼', '安静', '慢热', '胆小', '温和', '好奇', '独立', '倔强', '爱观察', '爱凑热闹', '认真', '有耐心', '贪玩', '谨慎']
-const PERSONALITY_QUIRKS = ['有点怕雷声', '对陌生声音敏感', '不喜欢改变路线', '容易担心旅人', '有点固执']
+const PERSONALITY_TRAITS = ['活泼', '安静', '勇敢', '胆小', '温和', '好奇', '独立', '倔强', '爱观察', '爱凑热闹', '认真', '有耐心', '贪玩', '谨慎']
+const PERSONALITY_QUIRKS = [
+  '有点怕雷声',
+  '对陌生声音敏感',
+  '不喜欢改变路线',
+  '容易担心旅人',
+  '有点固执',
+  '总把喜欢的小东西藏得太好',
+  '听见门响会先停一下',
+  '不喜欢爪子沾湿',
+  '对新摆设要观察很久',
+  '容易被窗外的影子分走注意',
+  '睡前总要绕一小圈',
+  '想靠近时又会假装路过',
+  '对气味格外在意',
+  '会把身边的小东西推得整整齐齐',
+  '听到风声会先竖起耳朵',
+]
+const BRAVE_INCOMPATIBLE_QUIRKS = new Set(['有点怕雷声', '对陌生声音敏感'])
+
+function quirkPoolForTrait(personalityTrait) {
+  return personalityTrait === '勇敢'
+    ? PERSONALITY_QUIRKS.filter((quirk) => !BRAVE_INCOMPATIBLE_QUIRKS.has(quirk))
+    : PERSONALITY_QUIRKS
+}
 const SPECIES_HABITS = {
   hearth_hound: ['喜欢靠近炉火', '喜欢闻旅人带回的旧物', '喜欢把小物件放在角落', '喜欢趴门槛晒太阳'],
   ember_drake: ['喜欢把自然脱落的小鳞片摆在窗边', '喜欢在清晨看远处山脊先亮起来', '喜欢把翅膀收好后靠近暖石坐一会儿', '喜欢听风从高处屋檐掠过', '喜欢盯着地图上尚未画满的空白', '喜欢在旅人收拾远行物品时，安静地看向门外'],
@@ -143,17 +172,26 @@ function nightBoostExpiry(timestamp) {
 function profileForCompanion(id, speciesId) {
   const digest = crypto.createHash('sha256').update(`${id}:${speciesId}`).digest()
   const habits = SPECIES_HABITS[speciesId] || ['喜欢安静待在身边']
+  const personalityTrait = PERSONALITY_TRAITS[digest[0] % PERSONALITY_TRAITS.length]
+  const quirks = quirkPoolForTrait(personalityTrait)
   return {
-    personalityTrait: PERSONALITY_TRAITS[digest[0] % PERSONALITY_TRAITS.length],
+    personalityTrait,
     habit: habits[digest[1] % habits.length],
-    quirk: PERSONALITY_QUIRKS[digest[2] % PERSONALITY_QUIRKS.length],
+    quirk: quirks[digest[2] % quirks.length],
   }
 }
 
 function parsePersonalityProfile(value, id, speciesId) {
   try {
     const parsed = JSON.parse(value || '')
-    if (parsed?.personalityTrait && parsed?.habit && parsed?.quirk) return parsed
+    if (parsed?.personalityTrait && parsed?.habit && parsed?.quirk) {
+      const fallback = profileForCompanion(id, speciesId)
+      const personalityTrait = parsed.personalityTrait === '慢热' ? '勇敢' : parsed.personalityTrait
+      const quirk = personalityTrait === '勇敢' && BRAVE_INCOMPATIBLE_QUIRKS.has(parsed.quirk)
+        ? quirkPoolForTrait(personalityTrait)[crypto.createHash('sha256').update(`${id}:${speciesId}:quirk`).digest()[0] % quirkPoolForTrait(personalityTrait).length]
+        : parsed.quirk
+      return { ...parsed, personalityTrait, quirk }
+    }
   } catch {}
   return profileForCompanion(id, speciesId)
 }
@@ -401,6 +439,39 @@ class StudyDatabase {
         this.run("UPDATE letters SET template_body = ?, ai_body = NULL, body_source = 'template', ai_status = 'pending', ai_provider = NULL, ai_model = NULL, ai_prompt_version = NULL, ai_retry_count = 0, updated_at = ? WHERE id = ?", [templateBody, Date.now(), letter.id], false)
       }
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '15')")
+    }
+
+    if (version < 16) {
+      // 制图桌现在只区分进行中与已完成。旧归档路标保留历史，
+      // 并以完成状态继续显示，而不是从地图中消失。
+      this.run("UPDATE tasks SET status = 'done', completed_at = COALESCE(completed_at, updated_at, created_at) WHERE status = 'archived'")
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '16')")
+    }
+    if (version < 17) {
+      const columns = new Set(this.all('PRAGMA table_info(companions)').map((column) => column.name))
+      if (!columns.has('is_ill')) this.db.run('ALTER TABLE companions ADD COLUMN is_ill INTEGER NOT NULL DEFAULT 0')
+      if (!columns.has('ill_since')) this.db.run('ALTER TABLE companions ADD COLUMN ill_since INTEGER')
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('hearth_lit', '0')")
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '17')")
+    }
+    if (version < 18) {
+      this.db.exec('CREATE TABLE IF NOT EXISTS poetry_collection (id TEXT PRIMARY KEY, session_id TEXT UNIQUE, poem_id TEXT NOT NULL, obtained_at INTEGER NOT NULL)')
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '18')")
+    }
+    if (version < 19) {
+      const total = Number(this.one('SELECT COALESCE(SUM(amount), 0) AS total FROM xp_transactions')?.total || 0)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('level_rewarded_through', ?)", [String(levelFromXp(total).level)])
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '19')")
+    }
+    if (version < 20) {
+      // V20: replace the former generic “慢热” trait with “勇敢”, expand the
+      // quirk pool, and keep brave companions free of fear-based quirks.
+      const rows = this.all('SELECT id, species_id, personality_profile_json FROM companions')
+      for (const row of rows) {
+        const profile = parsePersonalityProfile(row.personality_profile_json, row.id, row.species_id)
+        this.run('UPDATE companions SET personality_profile_json = ? WHERE id = ?', [JSON.stringify(profile), row.id], false)
+      }
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '20')")
     }
   }
 
@@ -1087,6 +1158,84 @@ class StudyDatabase {
     return this.one('SELECT * FROM goals WHERE id = ?', [id])
   }
 
+  getUnlockedExpeditionLocations() {
+    const raw = this.getSettings().unlocked_expedition_locations
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return []
+      return [...new Set(parsed.filter((location) => MAP_FRAGMENT_LOCATIONS.includes(location)))]
+    } catch {
+      return []
+    }
+  }
+
+  getExpeditionLocationPool() {
+    return [...LOCATIONS, ...this.getUnlockedExpeditionLocations()]
+  }
+
+  getHearthState() {
+    const hour = new Date().getHours()
+    const automatic = hour < 6 || hour >= 18
+    return { lit: automatic || Number(this.getSettings().hearth_lit || 0) === 1, automatic }
+  }
+
+  getPoetryCollection() {
+    return this.all('SELECT * FROM poetry_collection ORDER BY obtained_at DESC').map((row) => ({ ...row, poem: BARD_POEMS.find((poem) => poem.id === row.poem_id) || null }))
+  }
+
+  claimBardPoem(sessionId) {
+    const expedition = this.one('SELECT rewards_json, created_at FROM expeditions WHERE session_id = ?', [sessionId])
+    if (!expedition) throw new Error('这段远征尚未留下吟游诗人的踪迹')
+    const rewards = JSON.parse(expedition.rewards_json || '{}')
+    if (!rewards.bard) throw new Error('这次远征没有遇见吟游诗人')
+    const existing = this.one('SELECT * FROM poetry_collection WHERE session_id = ?', [sessionId])
+    if (existing) return { ...existing, poem: BARD_POEMS.find((poem) => poem.id === existing.poem_id) }
+    const owned = new Set(this.all('SELECT poem_id FROM poetry_collection').map((row) => row.poem_id))
+    const candidates = BARD_POEMS.filter((poem) => !owned.has(poem.id))
+    if (!candidates.length) return { exhausted: true }
+    const poem = candidates[crypto.createHash('sha256').update(`${sessionId}:poem`).digest().readUInt32LE(0) % candidates.length]
+    const row = { id: crypto.randomUUID(), session_id: sessionId, poem_id: poem.id, obtained_at: expedition.created_at }
+    this.run('INSERT INTO poetry_collection (id, session_id, poem_id, obtained_at) VALUES (?, ?, ?, ?)', [row.id, row.session_id, row.poem_id, row.obtained_at])
+    return { ...row, poem }
+  }
+
+  setHearthLit(lit) {
+    const hour = new Date().getHours()
+    if (hour < 6 || hour >= 18) return this.getHearthState()
+    this.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['hearth_lit', lit ? '1' : '0'])
+    this.save()
+    return this.getHearthState()
+  }
+
+  useHearthRecipe(recipeId) {
+    if (!this.getHearthState().lit) throw new Error('先点燃炉火，才能开始熬制或锻造')
+    const recipes = {
+      herbal_soup: { source: 'herb_bundle', amount: 10, output: 'herbal_soup', text: '山野药草在炉火上慢慢熬成了山草药汤。' },
+      honey_amber: { source: 'amber_chip', amount: 10, output: 'honey_amber', text: '蜜色琥珀碎片在炉火中熔成了一枚珍稀蜜色琥珀。' },
+    }
+    const recipe = recipes[recipeId]
+    if (!recipe) throw new Error('这份炉火配方不存在')
+    const source = this.one('SELECT * FROM inventory WHERE item_id = ?', [recipe.source])
+    if (!source || Number(source.quantity) < recipe.amount) throw new Error(`需要 ${recipe.amount} 件材料才能开始`)
+    const now = Date.now()
+    this.transaction(() => {
+      this.run('UPDATE inventory SET quantity = quantity - ?, updated_at = ? WHERE item_id = ?', [recipe.amount, now, recipe.source], false)
+      this.run(`INSERT INTO inventory (item_id, quantity, first_found_at, updated_at) VALUES (?, 1, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET quantity = quantity + 1, updated_at = excluded.updated_at`, [recipe.output, now, now], false)
+    })
+    return { ...this.getHearthState(), effect: recipe.text }
+  }
+
+  deleteGoal(id) {
+    const goal = this.one('SELECT id FROM goals WHERE id = ?', [id])
+    if (!goal) throw new Error('目标分组不存在')
+    this.transaction(() => {
+      this.run('UPDATE tasks SET goal_id = NULL, updated_at = ? WHERE goal_id = ?', [Date.now(), id], false)
+      this.run('DELETE FROM goals WHERE id = ?', [id], false)
+    })
+  }
+
   restoreGoal(id) {
     const goal = this.one("SELECT * FROM goals WHERE id = ? AND status = 'archived'", [id])
     if (!goal) throw new Error('只能恢复已归档的目标分组')
@@ -1159,6 +1308,7 @@ class StudyDatabase {
       ? this.one('SELECT * FROM companions WHERE id = ?', [companionId])
       : this.one('SELECT * FROM companions WHERE is_active = 1 ORDER BY met_at LIMIT 1')
     if (companionId && !companion) throw new Error('同行伙伴不存在')
+    if (companion?.is_ill) throw new Error(`${companion.nickname || '这位伙伴'}正在小屋里休养，今天不能出征`)
     const plannedSeconds = Math.max(5, Math.min(90, Number(plannedMinutes) || 25)) * 60
     const id = crypto.randomUUID()
     const intervalId = crypto.randomUUID()
@@ -1215,6 +1365,7 @@ class StudyDatabase {
     const now = Date.now()
     let xpAwarded = 0
     let expedition = null
+    const levelBefore = this.getXpSummary().level
     const primaryResult = { taskId: session.task_id, completed: false, xpAwarded: 0, alreadyAwarded: false }
     const contributedResults = []
     this.transaction(() => {
@@ -1309,9 +1460,11 @@ class StudyDatabase {
           blocker,
           nextStep,
           createdAt: now,
+          startedAt: session.started_at,
         })
       }
     })
+    const levelUps = this.awardLevelUpRewards(levelBefore, this.getXpSummary().level)
     const unlocked = this.checkAchievements()
     return {
       session: this.one('SELECT * FROM focus_sessions WHERE id = ?', [id]),
@@ -1320,10 +1473,11 @@ class StudyDatabase {
       expedition,
       primaryTask: primaryResult,
       contributedTasks: contributedResults,
+      levelUps,
     }
   }
 
-  createExpeditionReward({ sessionId, activeSeconds, companionId, content, outcome, blocker, nextStep, createdAt }) {
+  createExpeditionReward({ sessionId, activeSeconds, companionId, content, outcome, blocker, nextStep, createdAt, startedAt }) {
     const existing = this.getExpedition(sessionId)
     if (existing) return existing
     const settings = this.getSettings()
@@ -1340,6 +1494,7 @@ class StudyDatabase {
       rareBoost,
       nightRareBoost,
       companionBoost,
+      locations: this.getExpeditionLocationPool(),
     })
     if (rareBoost) this.run("DELETE FROM settings WHERE key = 'rare_boost'", [], false)
 
@@ -1377,10 +1532,27 @@ class StudyDatabase {
       if (companionBoost) this.run("DELETE FROM settings WHERE key = 'companion_boost'", [], false)
     }
 
+    let illness = null
+    const healthyCount = Number(this.one('SELECT COUNT(*) AS count FROM companions WHERE is_ill = 0')?.count || 0)
+    if (companionId && healthyCount > 1) {
+      const roll = crypto.createHash('sha256').update(`${sessionId}:illness`).digest().readUInt32LE(0) / 0x1_0000_0000
+      if (roll < 0.01) {
+        const sick = this.one('SELECT * FROM companions WHERE id = ?', [companionId])
+        if (sick && !sick.is_ill) {
+          this.run('UPDATE companions SET is_ill = 1, ill_since = ?, is_active = 0 WHERE id = ?', [createdAt, sick.id], false)
+          const replacement = this.one('SELECT id FROM companions WHERE is_ill = 0 ORDER BY met_at LIMIT 1')
+          if (replacement) this.run('UPDATE companions SET is_active = 1 WHERE id = ?', [replacement.id], false)
+          illness = { companionId: sick.id, nickname: sick.nickname }
+          activeCompanion = this.getCompanion(sick.id)
+        }
+      }
+    }
+
     this.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['rare_pity', String(rolled.rareFound ? 0 : Number(settings.rare_pity || 0) + 1)], false)
     const noMoreSpecies = ownedSpeciesIds.length + (newCompanion ? 1 : 0) >= COMPANION_SPECIES.length
     this.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['companion_pity', String(newCompanion || noMoreSpecies ? 0 : Number(settings.companion_pity || 0) + 1)], false)
 
+    const caravan = rollCaravanEncounter({ sessionId, activeSeconds, startedAt })
     const rewards = {
       tier: rolled.tier,
       drops: rolled.drops,
@@ -1391,6 +1563,9 @@ class StudyDatabase {
       activeCompanion,
       newCompanion,
       growthEvent,
+      illness,
+      caravan,
+      bard: rollBardEncounter({ sessionId, activeSeconds, caravan }),
     }
     this.run(`INSERT INTO expeditions (session_id, tier_id, location, event_text, rewards_json, rare_found, companion_found_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -1505,10 +1680,44 @@ class StudyDatabase {
       activeCompanion: rewards.activeCompanion,
       newCompanion: rewards.newCompanion,
       growthEvent: rewards.growthEvent || null,
+      illness: rewards.illness || null,
+      caravan: rewards.caravan || null,
+      bard: rewards.bard || null,
       knowledgeRelic: this.one('SELECT * FROM knowledge_relics WHERE session_id = ?', [sessionId]),
       createdAt: row.created_at,
       returnKind,
     }
+  }
+
+  buyCaravanItem(sessionId, slotIndex) {
+    const index = Number(slotIndex)
+    if (!Number.isInteger(index) || index < 0 || index > 4) throw new Error('商队货位不存在')
+    let expedition = null
+    this.transaction(() => {
+      const row = this.one('SELECT * FROM expeditions WHERE session_id = ?', [sessionId])
+      if (!row) throw new Error('这支商队已经离开了')
+      const rewards = JSON.parse(row.rewards_json)
+      const caravan = rewards.caravan
+      const entry = caravan?.items?.[index]
+      if (!entry) throw new Error('这支商队没有留下这件货物')
+      if (entry.sold) throw new Error('这件旅途遗存已经换走了')
+      const item = LOOT.find((candidate) => candidate.id === entry.item?.id)
+      if (!item || item.rarity === 'common') throw new Error('商队货物记录有误')
+      const price = CARAVAN_PRICES[item.rarity]
+      const coins = this.one('SELECT * FROM inventory WHERE item_id = ?', ['copper_coin'])
+      if (!coins || Number(coins.quantity) < price) throw new Error(`旧王朝铜币不足，需要 ${price} 枚`)
+      const now = Date.now()
+      this.run('UPDATE inventory SET quantity = quantity - ?, updated_at = ? WHERE item_id = ?', [price, now, 'copper_coin'], false)
+      this.run(`INSERT INTO inventory (item_id, quantity, first_found_at, updated_at)
+        VALUES (?, 1, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET quantity = quantity + 1, updated_at = excluded.updated_at`, [item.id, now, now], false)
+      caravan.items[index] = { item, price, sold: true }
+      rewards.caravan = caravan
+      this.run('UPDATE expeditions SET rewards_json = ? WHERE session_id = ?', [JSON.stringify(rewards), sessionId], false)
+      expedition = this.getExpedition(sessionId)
+    })
+    this.save()
+    return expedition
   }
 
   enrichCompanion(row) {
@@ -1533,7 +1742,16 @@ class StudyDatabase {
       FROM expeditions e
       JOIN focus_sessions s ON s.id = e.session_id
       WHERE s.companion_id = ? ORDER BY e.created_at DESC LIMIT 3`, [companion.id])
+    const growthEvents = this.all(`SELECT previous_stage, stage, evolution_path, occurred_at
+      FROM companion_growth_events
+      WHERE companion_id = ? ORDER BY occurred_at ASC`, [companion.id])
     const profile = parsePersonalityProfile(companion.personality_profile_json, companion.id, companion.species_id)
+    const species = COMPANION_SPECIES.find((item) => item.id === companion.species_id)
+    const stageName = (stage, evolutionPath) => {
+      if (!species) return '新的模样'
+      if (Number(stage) >= 2 && evolutionPath) return species.evolutions.find((item) => item.id === evolutionPath)?.name || species.stages[2]
+      return species.stages[Number(stage)] || '新的模样'
+    }
     const first = companion.species_id === 'hearth_hound'
       ? '抵达边境小镇前，栗子已经在旧路上与你同行。'
       : '你们的相遇，被收进了旅途的第一页。'
@@ -1541,6 +1759,11 @@ class StudyDatabase {
       { kind: 'first', text: first, at: companion.met_at },
       ...journeys.map((journey) => ({ kind: 'journey', text: `在${journey.location}，${journey.event_text}`, at: journey.created_at })),
       ...(journeys.length === 0 ? [{ kind: 'habit', text: `${profile.habit}。这是它留在小屋里的小小习惯。`, at: companion.met_at }] : []),
+      ...growthEvents.map((event) => ({
+        kind: 'growth',
+        text: `在这一天，${stageName(event.previous_stage, '')}的羁绊长成了${stageName(event.stage, event.evolution_path)}。`,
+        at: event.occurred_at,
+      })),
     ]
   }
 
@@ -1581,14 +1804,16 @@ class StudyDatabase {
     const ownedSpecies = new Set(owned.map((item) => item.species_id))
     return {
       owned,
-      active: owned.find((item) => item.is_active) || owned[0] || null,
+      active: owned.find((item) => item.is_active && !item.is_ill) || owned.find((item) => !item.is_ill) || null,
       catalog: COMPANION_SPECIES.map((species) => ({ ...species, discovered: ownedSpecies.has(species.id) })),
       total: COMPANION_SPECIES.length,
     }
   }
 
   setActiveCompanion(id) {
-    if (!this.one('SELECT id FROM companions WHERE id = ?', [id])) throw new Error('伙伴不存在')
+    const companion = this.one('SELECT * FROM companions WHERE id = ?', [id])
+    if (!companion) throw new Error('伙伴不存在')
+    if (companion.is_ill) throw new Error(`${companion.nickname || '这位伙伴'}正在小屋里休养`)
     this.transaction(() => {
       this.run('UPDATE companions SET is_active = 0', [], false)
       this.run('UPDATE companions SET is_active = 1 WHERE id = ?', [id], false)
@@ -1624,12 +1849,14 @@ class StudyDatabase {
     }))
   }
 
-  useItem(itemId) {
+  useItem(itemId, targetCompanionId = null) {
     const entry = this.one('SELECT * FROM inventory WHERE item_id = ?', [itemId])
     if (!entry || Number(entry.quantity) <= 0) throw new Error('物品不足')
     const now = Date.now()
     let effect = ''
     let growthEvent = null
+    let consumedQuantity = 1
+    let unlockedLocation = null
 
     const grantBond = (companion, amount) => {
       const previousStage = companionStage(companion.bond_xp)
@@ -1649,13 +1876,44 @@ class StudyDatabase {
       })
     }
 
-    if (itemId === 'berry_bread') {
+    if (itemId === 'map_scrap') {
+      if (Number(entry.quantity) < 10) throw new Error(`还差 ${10 - Number(entry.quantity)} 张手绘地图碎片，才能拼合新的地点`)
+      const unlocked = this.getUnlockedExpeditionLocations()
+      const candidates = MAP_FRAGMENT_LOCATIONS.filter((location) => !unlocked.includes(location))
+      if (!candidates.length) throw new Error('所有可绘入地图的地点都已标好，这些碎片会先安静留在行囊里')
+      const seed = crypto.createHash('sha256').update(`${now}:${entry.quantity}:${unlocked.join('|')}`).digest().readUInt32LE(0)
+      unlockedLocation = candidates[seed % candidates.length]
+      this.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['unlocked_expedition_locations', JSON.stringify([...unlocked, unlockedLocation])], false)
+      consumedQuantity = 10
+      effect = `十张碎片在桌上拼成了一条新路：「${unlockedLocation}」已经绘入远征地图。`
+    } else if (itemId === 'herbal_soup') {
+      const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : null
+      if (!companion?.is_ill) throw new Error('山草药汤只能给正在休养的伙伴使用')
+      grantBond(companion, 5)
+      this.run('UPDATE companions SET is_ill = 0, ill_since = NULL WHERE id = ?', [companion.id], false)
+      effect = `${companion.nickname || '伙伴'}喝下山草药汤，慢慢恢复了精神，羁绊 +5。`
+    } else if (itemId === 'honey_amber') {
+      const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : this.one('SELECT * FROM companions WHERE is_active = 1')
+      if (!companion) throw new Error('请先选择想分享蜜色琥珀的伙伴')
+      grantBond(companion, 10)
+      effect = `${companion.nickname || '伙伴'}收下了珍稀蜜色琥珀，羁绊 +10。`
+    } else if (itemId === 'berry_bread') {
       const active = this.one('SELECT * FROM companions WHERE is_active = 1')
       if (!active) throw new Error('没有同行伙伴可以分享面包')
       grantBond(active, 1)
       effect = `${active.nickname || '伙伴'}把这份莓果面包记在了共同旅途中。`
-    } else if (itemId === 'river_stone' || itemId === 'wind_hill_feather' || itemId === 'dragon_scale') {
-      const speciesId = itemId === 'river_stone' ? 'river_otter' : itemId === 'wind_hill_feather' ? 'moon_owl' : 'ember_drake'
+    } else if (['river_stone', 'wind_hill_feather', 'dragon_scale', 'flame_scatter', 'rain_moss_vein', 'violet_mist_glass', 'gray_pattern_stone', 'cloud_shadow_grass'].includes(itemId)) {
+      const companionKeepsakes = {
+        river_stone: 'river_otter',
+        wind_hill_feather: 'moon_owl',
+        dragon_scale: 'ember_drake',
+        flame_scatter: 'hearth_hound',
+        rain_moss_vein: 'moss_fox',
+        violet_mist_glass: 'glimmer_cat',
+        gray_pattern_stone: 'iron_badger',
+        cloud_shadow_grass: 'cloud_rabbit',
+      }
+      const speciesId = companionKeepsakes[itemId]
       const companion = this.one('SELECT * FROM companions WHERE species_id = ?', [speciesId])
       if (!companion) throw new Error('这份礼物要等对应伙伴加入旅途后才能使用')
       grantBond(companion, 3)
@@ -1681,9 +1939,9 @@ class StudyDatabase {
       throw new Error('这件物品目前仅可收藏；它的用途会在后续旅途中开放')
     }
 
-    this.run('UPDATE inventory SET quantity = quantity - 1, updated_at = ? WHERE item_id = ?', [now, itemId])
+    this.run('UPDATE inventory SET quantity = quantity - ?, updated_at = ? WHERE item_id = ?', [consumedQuantity, now, itemId])
     this.save()
-    return { consumed: true, itemId, effect, growthEvent }
+    return { consumed: true, itemId, effect, growthEvent, consumedQuantity, unlockedLocation }
   }
 
   getKnowledgeRelics(limit = 8) {
@@ -1774,6 +2032,20 @@ class StudyDatabase {
       ...levelFromXp(totalXp),
       recent: this.all('SELECT * FROM xp_transactions ORDER BY created_at DESC LIMIT 8'),
     }
+  }
+
+  awardLevelUpRewards(previousLevel, currentLevel) {
+    const rewardedThrough = Math.max(Number(this.getSettings().level_rewarded_through || previousLevel), previousLevel)
+    const levels = []
+    for (let level = rewardedThrough + 1; level <= currentLevel; level += 1) levels.push(level)
+    if (!levels.length) return []
+    const now = Date.now()
+    this.transaction(() => {
+      for (const itemId of ['berry_bread', 'copper_coin']) this.run(`INSERT INTO inventory (item_id, quantity, first_found_at, updated_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET quantity = quantity + 1, updated_at = excluded.updated_at`, [itemId, levels.length, now, now], false)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('level_rewarded_through', ?)", [String(currentLevel)], false)
+    })
+    return levels.map((level) => ({ level, rewards: [{ itemId: 'berry_bread', quantity: 1 }, { itemId: 'copper_coin', quantity: 1 }] }))
   }
 
   checkAchievements() {

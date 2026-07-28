@@ -18,6 +18,17 @@ function narrativeNames(items) {
   return (items || []).map((item) => String(item?.title || item?.name || item || '').trim()).filter(Boolean)
 }
 
+function narrativeStories(journey) {
+  const stories = journey?.expeditionStories || {}
+  return {
+    locations: narrativeNames(stories.locations),
+    moments: narrativeNames(stories.moments),
+    companionsMet: narrativeNames(stories.companionsMet),
+    companionsTravelled: narrativeNames(stories.companionsTravelled),
+    rareFinds: narrativeNames(stories.rareFinds),
+  }
+}
+
 function narrativeDepartures(stats) {
   return Object.values(stats?.sessionCounts || {}).reduce((sum, count) => sum + (Number(count) || 0), 0)
 }
@@ -37,11 +48,16 @@ function buildNarrativeFactEnvelope(letter) {
     stats: {
       departures: narrativeDepartures(stats),
       completedTaskCount: narrativeNames(journey.completedTasks).length,
+      // 周信可以感知整周走过的时间，但提示词禁止把它写成数字报告。
+      weeklyTotalActiveSeconds: (fact.letterType || letter.letter_type) === 'weekly'
+        ? Math.max(0, Number(stats.totalActiveSeconds) || 0)
+        : null,
     },
     journey: {
       direction: narrativeDirection(fact),
       completedTasks: narrativeNames(journey.completedTasks),
       discoveries: narrativeNames(journey.discoveries),
+      expeditionStories: narrativeStories(journey),
     },
     observatory: {
       hasWrittenReview: fact.observatory?.hasWrittenReview === true,
@@ -95,7 +111,7 @@ async function generateAngelNarrative({ letter, apiKey, settings = {}, prompt, f
   try {
     const response = await fetchImpl(`${baseUrl}/chat/completions`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, max_tokens: 600, messages: [{ role: 'system', content: `${prompt}\n\n## 当前信件事实\n${JSON.stringify(fact)}` }, { role: 'user', content: '请根据当前事实，以小天使的口吻写一封短信。' }] }),
+      body: JSON.stringify({ model, max_tokens: 900, messages: [{ role: 'system', content: `${prompt}\n\n## 当前信件事实\n${JSON.stringify(fact)}` }, { role: 'user', content: '请根据当前事实，以小天使的口吻写一封短信。' }] }),
       signal: AbortSignal.timeout(timeoutMs),
     })
     const json = await response.json().catch(() => ({}))

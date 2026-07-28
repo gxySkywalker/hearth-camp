@@ -77,6 +77,6 @@ for (let i = 0; i < totalSamples; i++) {
   buffer.writeInt16LE(samples[i], 44 + i * 2)
 }
 
-const outPath = path.join(__dirname, '..', 'public', 'audio', 'mail_open.wav')
+const outPath = path.join(__dirname, '..', '..', 'public', 'audio', 'mail_open.wav')
 fs.writeFileSync(outPath, buffer)
 console.log(`Generated: ${outPath} (${(buffer.length / 1024).toFixed(1)} KB, ${TOTAL_DURATION.toFixed(3)}s)`)

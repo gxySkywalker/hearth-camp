@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { writeNormalizedWalkAtlas } from './companion-atlas.mjs'
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const draftDir = resolve(root, 'assets/art/drafts/ember-drake-forms')
 const outputDir = resolve(root, 'assets/art/characters/companions')
 

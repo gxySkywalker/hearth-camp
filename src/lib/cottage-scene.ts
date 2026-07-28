@@ -8,7 +8,7 @@ export const COTTAGE_PLAYER_START_POSITION: CottagePosition = { x: 240, y: 144 }
 export type CottagePosition = { x: number; y: number }
 export type CottageDirection = 'north' | 'south' | 'east' | 'west'
 export type CottageCompanionMode = 'follow' | 'stay'
-export type CottageInteractionAction = 'expedition' | 'journal' | 'inventory' | 'review' | 'map'
+export type CottageInteractionAction = 'expedition' | 'journal' | 'poetry' | 'inventory' | 'review' | 'map' | 'hearth'
 export type CottageInteraction = {
   action: CottageInteractionAction
   label: string
@@ -17,6 +17,8 @@ export type CottageInteraction = {
 }
 
 const INTERACTIONS: CottageInteraction[] = [
+  { action: 'poetry', label: '翻开吟游诗集', prompt: { x: 39, y: 54 }, zone: { left: 8, right: 70, top: 111, bottom: 150 } },
+  { action: 'hearth', label: '照看炉火', prompt: { x: 84, y: 77 }, zone: { left: 48, right: 124, top: 74, bottom: 122 } },
   { action: 'journal', label: '翻开冒险日志', prompt: { x: 242, y: 77 }, zone: { left: 208, right: 280, top: 106, bottom: 122 } },
   { action: 'map', label: '查看制图桌上的路线', prompt: { x: 376, y: 68 }, zone: { left: 322, right: 434, top: 106, bottom: 122 } },
   { action: 'inventory', label: '打开宝箱与背包', prompt: { x: 456, y: 86 }, zone: { left: 424, right: 498, top: 116, bottom: 134 } },

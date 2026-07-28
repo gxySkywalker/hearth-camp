@@ -96,6 +96,7 @@ describe('cottage movement', () => {
   })
 
   it('finds keyboard interactions from the player foot position', () => {
+    expect(getCottageInteraction({ x: 16, y: 42 })?.action).toBe('poetry')
     expect(getCottageInteraction({ x: 210, y: 44 })?.action).toBe('journal')
     expect(getCottageInteraction({ x: 210, y: 44 })?.prompt).toEqual({ x: 242, y: 77 })
     expect(getCottageInteraction({ x: 232, y: 216 })?.action).toBe('expedition')

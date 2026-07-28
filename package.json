@@ -1,8 +1,8 @@
 {
   "name": "growth-arc",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
-  "description": "A private, local-first learning and focus system",
+  "description": "炉火营地：本地优先的像素陪伴与远征记录",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -11,29 +11,30 @@
     "build": "tsc -p tsconfig.app.json && vite build",
     "start": "npm run build && electron .",
     "test": "vitest run src/lib/domain-runtime.test.ts src/lib/game-runtime.test.ts src/lib/database-runtime.test.ts src/lib/cottage-scene.test.ts src/lib/observatory.test.ts src/lib/angel-ai-runtime.test.ts",
-    "test:mail-lifecycle": "node scripts/test-mail-lifecycle.mjs",
-    "test:ai-narrative": "node scripts/test-ai-narrative.mjs",
+    "test:mail-lifecycle": "node scripts/quality/test-mail-lifecycle.mjs",
+    "test:ai-narrative": "node scripts/quality/test-ai-narrative.mjs",
     "test:watch": "vitest",
-    "art:validate": "node scripts/validate-art-assets.mjs",
-    "art:prepare:cottage": "node scripts/prepare-tileset-draft.mjs",
-    "art:repair:cottage-floor": "node scripts/repair-cottage-floor-draft.mjs",
-    "art:test:cottage-seams": "node scripts/build-tileset-seam-test.mjs",
-    "art:repair:cottage-walls": "node scripts/repair-cottage-wall-draft.mjs",
-    "art:test:cottage-walls": "node scripts/build-cottage-wall-test.mjs",
-    "art:prepare:cottage-structure": "node scripts/prepare-cottage-structure-drafts.mjs",
-    "art:test:cottage-structure": "node scripts/build-cottage-structure-test.mjs",
-    "art:prepare:player-idle": "node scripts/prepare-player-idle-draft.mjs",
-    "art:prepare:cloud-rabbit": "node scripts/prepare-cloud-rabbit-forms.mjs",
-    "art:prepare:ember-drake": "node scripts/prepare-ember-drake-forms.mjs",
-    "art:build:cottage-backdrop": "node scripts/build-cottage-runtime-backdrop.mjs",
+    "art:validate": "node scripts/quality/validate-art-assets.mjs",
+    "art:prepare:cottage": "node scripts/art/prepare-tileset-draft.mjs",
+    "art:repair:cottage-floor": "node scripts/art/repair-cottage-floor-draft.mjs",
+    "art:test:cottage-seams": "node scripts/art/build-tileset-seam-test.mjs",
+    "art:repair:cottage-walls": "node scripts/art/repair-cottage-wall-draft.mjs",
+    "art:test:cottage-walls": "node scripts/art/build-cottage-wall-test.mjs",
+    "art:prepare:cottage-structure": "node scripts/art/prepare-cottage-structure-drafts.mjs",
+    "art:test:cottage-structure": "node scripts/art/build-cottage-structure-test.mjs",
+    "art:prepare:player-idle": "node scripts/art/prepare-player-idle-draft.mjs",
+    "art:prepare:cloud-rabbit": "node scripts/art/prepare-cloud-rabbit-forms.mjs",
+    "art:prepare:ember-drake": "node scripts/art/prepare-ember-drake-forms.mjs",
+    "art:build:cottage-backdrop": "node scripts/art/build-cottage-runtime-backdrop.mjs",
     "dist": "npm run build && electron-builder --win nsis"
   },
   "build": {
-    "appId": "com.personal.growtharc",
-    "productName": "成长轨迹",
+    "appId": "com.personal.hearthcamp",
+    "productName": "炉火营地",
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "assets/branding/app-icon.png",
       "package.json"
     ],
     "asarUnpack": [
@@ -41,7 +42,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.png"
+      "icon": "assets/branding/app-icon.png"
     },
     "nsis": {
       "oneClick": false,

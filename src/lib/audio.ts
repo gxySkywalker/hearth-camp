@@ -54,6 +54,8 @@ const UI_SOUNDS: Record<string, { src: string; volume: number }> = {
   mail_open: { src: 'audio/mail_open.wav', volume: UI_MAIL_OPEN_VOLUME },
 }
 
+let lastSelectPlayedAt = 0
+
 /**
  * Play a one-shot UI sound effect.
  * Fail-silent: missing files and autoplay blocks are caught.
@@ -62,6 +64,12 @@ const UI_SOUNDS: Record<string, { src: string; volume: number }> = {
 export function playUISound(type: string): void {
   const def = UI_SOUNDS[type]
   if (!def) return
+  // Global delegation and a few existing feature-specific handlers can observe
+  // the same interaction. Keep a single tactile click without muting rapid,
+  // intentional separate selections.
+  const now = performance.now()
+  if (type === 'select' && now - lastSelectPlayedAt < 45) return
+  if (type === 'select') lastSelectPlayedAt = now
   try {
     const audio = new Audio(def.src)
     audio.volume = def.volume

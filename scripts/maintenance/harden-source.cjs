@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const root = path.join(__dirname, '..')
+const root = path.join(__dirname, '..', '..')
 
 const cssPath = path.join(root, 'src', 'styles.css')
 const css = fs.readFileSync(cssPath, 'utf8').replace(/^@import url\([^\n]+\);\r?\n\r?\n/, '')

@@ -4,24 +4,27 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { writeNormalizedWalkAtlas } from './companion-atlas.mjs'
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const draftDir = resolve(root, 'assets/art/drafts/nightlight-cat-forms')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const draftDir = resolve(root, 'assets/art/drafts/moss-fox-forms')
 const outputDir = resolve(root, 'assets/art/characters/companions')
 
 const forms = [
-  { id: 'stage-0', portrait: 'glimmer_cat_stage-0_portrait_source.png', walk: 'glimmer_cat_stage-0_walk_source.png' },
-  { id: 'stage-1', portrait: 'glimmer_cat_stage-1_portrait_source.png', walk: 'glimmer_cat_stage-1_walk_source.png' },
-  { id: 'night_glass', portrait: 'glimmer_cat_night_glass_portrait_source.png', walk: 'glimmer_cat_night_glass_walk_source.png' },
+  { id: 'stage-0', portrait: 'moss_fox_stage-0_portrait_source.png', walk: 'moss_fox_stage-0_walk_source.png' },
+  { id: 'stage-1', portrait: 'moss_fox_stage-1_portrait_source.png', walk: 'moss_fox_stage-1_walk_source.png' },
+  { id: 'forest_crown', portrait: 'moss_fox_forest_crown_portrait_source.png', walk: 'moss_fox_forest_crown_walk_source.png' },
 ]
 
 function isEdgeBackground(red, green, blue) {
   const brightest = Math.max(red, green, blue)
   const darkest = Math.min(red, green, blue)
+  // The supplied sheets use only white / very light neutral checker squares.
+  // Green, cream and outlined character pixels deliberately fail this test.
   return brightest >= 222 && brightest - darkest <= 8
 }
 
-// Only clear the white/checker field connected to an image edge. Bright tail
-// light and cream pixels inside the cat stay untouched.
+/** Clears only background pixels that are connected to a source image edge.
+ * This protects the cream muzzle, paws and tail tips from the common
+ * "erase all white" mistake, while removing the sheet's white/checker field. */
 function clearEdgeConnectedBackground(data, width, height) {
   const seen = new Uint8Array(width * height)
   const queue = []
@@ -53,12 +56,12 @@ async function transparentRaster(path) {
 
 async function writePortrait(form) {
   const { data, info } = await transparentRaster(resolve(draftDir, form.portrait))
-  await sharp(data, { raw: info }).png().toFile(resolve(outputDir, `glimmer_cat_${form.id}_camp_portrait_v1.png`))
+  await sharp(data, { raw: info }).png().toFile(resolve(outputDir, `moss_fox_${form.id}_camp_portrait_v1.png`))
 }
 
 async function writeWalkAtlas(form, cellSize) {
   const { data, info } = await transparentRaster(resolve(draftDir, form.walk))
-  await writeNormalizedWalkAtlas({ data, info, cellSize, output: resolve(outputDir, `glimmer_cat_${form.id}_walk_${cellSize}_v1.png`) })
+  await writeNormalizedWalkAtlas({ data, info, cellSize, output: resolve(outputDir, `moss_fox_${form.id}_walk_${cellSize}_v1.png`) })
 }
 
 await mkdir(outputDir, { recursive: true })
@@ -69,4 +72,4 @@ for (const form of forms) {
 }
 
 const files = await readdir(outputDir)
-console.log(`Prepared ${forms.length} night-light cat forms: ${files.filter((name) => /^glimmer_cat_(stage-0|stage-1|night_glass)_/.test(name)).join(', ')}`)
+console.log(`Prepared ${forms.length} moss fox forms: ${files.filter((name) => /^moss_fox_(stage-0|stage-1|forest_crown)_/.test(name)).join(', ')}`)

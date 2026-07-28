@@ -17,6 +17,8 @@ export function CottageScene({
   onAction,
   onCompanionInteract,
   companionMode,
+  hearthLit = false,
+  hearthAvailable = false,
 }: {
   playerName: string
   companion?: Companion | null
@@ -24,6 +26,8 @@ export function CottageScene({
   onAction?: (action: CottageAction) => void
   onCompanionInteract?: () => void
   companionMode?: CottageCompanionMode
+  hearthLit?: boolean
+  hearthAvailable?: boolean
 }) {
   return <PixiCottageScene
     playerName={playerName}
@@ -32,5 +36,7 @@ export function CottageScene({
     onAction={onAction}
     onCompanionInteract={onCompanionInteract}
     companionMode={companionMode}
+    hearthLit={hearthLit}
+    hearthAvailable={hearthAvailable}
   />
 }

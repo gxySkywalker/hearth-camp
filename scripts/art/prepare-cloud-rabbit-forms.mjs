@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { writeNormalizedWalkAtlas } from './companion-atlas.mjs'
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const draftDir = resolve(root, 'assets/art/drafts/dusk-owl-forms')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const draftDir = resolve(root, 'assets/art/drafts/cloud-rabbit-forms')
 const outputDir = resolve(root, 'assets/art/characters/companions')
 
 const forms = [
-  { id: 'stage-0', portrait: 'moon_owl_stage-0_portrait_source.png', walk: 'moon_owl_stage-0_walk_source.png' },
-  { id: 'stage-1', portrait: 'moon_owl_stage-1_portrait_source.png', walk: 'moon_owl_stage-1_walk_source.png' },
-  { id: 'dusk_owl', portrait: 'moon_owl_dusk_owl_portrait_source.png', walk: 'moon_owl_dusk_owl_walk_source.png' },
+  { id: 'stage-0', portrait: 'cloud_rabbit_stage-0_portrait_source.png', walk: 'cloud_rabbit_stage-0_walk_source.png' },
+  { id: 'stage-1', portrait: 'cloud_rabbit_stage-1_portrait_source.png', walk: 'cloud_rabbit_stage-1_walk_source.png' },
+  { id: 'wind_tuft_rabbit', portrait: 'cloud_rabbit_wind_tuft_rabbit_portrait_source.png', walk: 'cloud_rabbit_wind_tuft_rabbit_walk_source.png' },
 ]
 
 function isEdgeBackground(red, green, blue) {
@@ -20,8 +20,9 @@ function isEdgeBackground(red, green, blue) {
   return brightest >= 222 && brightest - darkest <= 8
 }
 
-// Remove only pale checkerboard pixels connected to an outer image edge. This
-// retains the owl's old-paper face feathers and every pale feather highlight.
+// The supplied sheets use a pale checkerboard rather than alpha. Clear only
+// pixels connected to an image edge, so the rabbit's cream fur and cloud-like
+// ear tufts remain part of the character.
 function clearEdgeConnectedBackground(data, width, height) {
   const seen = new Uint8Array(width * height)
   const queue = []
@@ -54,12 +55,12 @@ async function transparentRaster(filename) {
 await mkdir(outputDir, { recursive: true })
 for (const form of forms) {
   const portrait = await transparentRaster(form.portrait)
-  await sharp(portrait.data, { raw: portrait.info }).png().toFile(resolve(outputDir, `moon_owl_${form.id}_camp_portrait_v1.png`))
+  await sharp(portrait.data, { raw: portrait.info }).png().toFile(resolve(outputDir, `cloud_rabbit_${form.id}_camp_portrait_v1.png`))
   const walk = await transparentRaster(form.walk)
   for (const cellSize of [32, 48]) {
-    await writeNormalizedWalkAtlas({ data: walk.data, info: walk.info, cellSize, output: resolve(outputDir, `moon_owl_${form.id}_walk_${cellSize}_v1.png`) })
+    await writeNormalizedWalkAtlas({ data: walk.data, info: walk.info, cellSize, output: resolve(outputDir, `cloud_rabbit_${form.id}_walk_${cellSize}_v1.png`) })
   }
 }
 
 const files = await readdir(outputDir)
-console.log(`Prepared ${forms.length} moon owl forms: ${files.filter((name) => /^moon_owl_(stage-0|stage-1|dusk_owl)_/.test(name)).join(', ')}`)
+console.log(`Prepared ${forms.length} cloud rabbit forms: ${files.filter((name) => /^cloud_rabbit_(stage-0|stage-1|wind_tuft_rabbit)_/.test(name)).join(', ')}`)

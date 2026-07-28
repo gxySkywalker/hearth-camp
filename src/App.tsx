@@ -50,6 +50,35 @@ function AppShell() {
   const [navState, dispatch] = useReducer(navReducer, undefined, initialNavState)
   const { dashboard, loading } = useApp()
 
+  // One shared sound layer for the ordinary DOM interface. Feature-specific
+  // interactions (for example the Pixi cottage and opening a letter) can opt
+  // out with data-ui-sound and retain their own sound.
+  useEffect(() => {
+    const interactiveSelector = 'button, a[href], [role="button"], input[type="checkbox"], input[type="radio"], select, input[type="range"], input[type="date"]'
+    const getInteractive = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>(interactiveSelector) : null
+    const isDisabled = (element: HTMLElement) => element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true'
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0) return
+      const element = getInteractive(event.target)
+      if (!element || isDisabled(element) || element.closest('[data-ui-sound]')) return
+      // Native form controls report their committed choice through change;
+      // waiting for it avoids a second sound when a select menu closes.
+      if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) return
+      playUISound('select')
+    }
+    const onChange = (event: Event) => {
+      const element = getInteractive(event.target)
+      if (!element || isDisabled(element) || element.closest('[data-ui-sound]')) return
+      playUISound('select')
+    }
+    window.addEventListener('click', onClick, true)
+    window.addEventListener('change', onChange, true)
+    return () => {
+      window.removeEventListener('click', onClick, true)
+      window.removeEventListener('change', onChange, true)
+    }
+  }, [])
+
   // ── Stable refs for the global keydown handler ────────────
   const navStateRef = useRef<NavState>(navState)
   navStateRef.current = navState

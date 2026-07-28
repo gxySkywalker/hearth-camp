@@ -83,6 +83,8 @@ export function PixiCottageScene({
   onAction,
   onCompanionInteract,
   companionMode = 'follow',
+  hearthLit = false,
+  hearthAvailable = false,
   onInitError,
 }: {
   playerName: string
@@ -91,6 +93,8 @@ export function PixiCottageScene({
   onAction?: (action: CottageInteractionAction) => void
   onCompanionInteract?: () => void
   companionMode?: CottageCompanionMode
+  hearthLit?: boolean
+  hearthAvailable?: boolean
   onInitError?: () => void
 }) {
   const canvasHostRef = useRef<HTMLDivElement>(null)
@@ -101,6 +105,10 @@ export function PixiCottageScene({
   const foregroundOcclusionRef = useRef<Sprite[]>([])
   const foregroundOcclusionTexturesRef = useRef<Partial<Record<CottageLightPeriod, Texture[]>>>({})
   const hearthFireRef = useRef<Sprite | null>(null)
+  // The persisted hearth state can resolve while Pixi is still loading its
+  // textures. Keep the newest value available to the async scene initializer.
+  const hearthLitRef = useRef(hearthLit)
+  hearthLitRef.current = hearthLit
   const playerSpriteRef = useRef<Sprite | null>(null)
   const companionSpriteRef = useRef<Sprite | Graphics | null>(null)
   const houndSpriteRef = useRef<Sprite | null>(null)
@@ -235,7 +243,7 @@ export function PixiCottageScene({
         hearthFire.height = 40
         hearthFire.position.set(79, 53)
         hearthFire.zIndex = 2
-        hearthFire.visible = lightPeriodRef.current === 'night'
+        hearthFire.visible = hearthLitRef.current
         hearthFireRef.current = hearthFire
         let activeFireFrame = 0
         app.ticker.add(() => {
@@ -351,9 +359,9 @@ export function PixiCottageScene({
     foregroundOcclusionRef.current.forEach((foreground, index) => {
       foreground.texture = foregroundTextures[index]
     })
-    if (hearthFireRef.current) hearthFireRef.current.visible = lightPeriod === 'night'
+    if (hearthFireRef.current) hearthFireRef.current.visible = hearthLit
     appRef.current?.render()
-  }, [lightPeriod])
+  }, [lightPeriod, hearthLit])
 
   useEffect(() => {
     let boundaryTimer: number | null = null
@@ -461,8 +469,9 @@ export function PixiCottageScene({
     }
     setWalkFrame((frame) => (frame + 1) % 4)
     const nearbyInteraction = getCottageInteraction(result.position)
-    setMessage(nearbyInteraction
-        ? `按 E、空格或回车：${nearbyInteraction.label}`
+    const availableInteraction = nearbyInteraction?.action === 'hearth' && !hearthAvailable ? null : nearbyInteraction
+    setMessage(availableInteraction
+        ? `按 E、空格或回车：${availableInteraction.label}`
         : result.message)
     return true
   }
@@ -484,7 +493,8 @@ export function PixiCottageScene({
     if (!canHandle('world')) return
     if (['e', 'enter', ' '].includes(event.key.toLowerCase())) {
       event.preventDefault()
-      const interaction = getCottageInteraction(position)
+      const nearby = getCottageInteraction(position)
+      const interaction = nearby?.action === 'hearth' && !hearthAvailable ? null : nearby
       if (interaction && onAction) {
         playUISound('select')
         setMessage(interaction.label)
@@ -509,7 +519,8 @@ export function PixiCottageScene({
     }
   }
 
-  const nearbyInteraction = getCottageInteraction(position)
+  const nearby = getCottageInteraction(position)
+  const nearbyInteraction = nearby?.action === 'hearth' && !hearthAvailable ? null : nearby
   const interactionPrompt = nearbyInteraction
       ? { label: nearbyInteraction.label, position: nearbyInteraction.prompt }
       : isNearCottageCompanion(position, companionPosition)

@@ -20,8 +20,8 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" vi
 app.whenReady().then(() => {
   const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
   const image = nativeImage.createFromDataURL(dataUrl).resize({ width: 512, height: 512, quality: 'best' })
-  const outputDir = path.join(__dirname, '..', 'assets')
+  const outputDir = path.join(__dirname, '..', '..', 'assets')
   fs.mkdirSync(outputDir, { recursive: true })
-  fs.writeFileSync(path.join(outputDir, 'icon.png'), image.toPNG())
+  fs.writeFileSync(path.join(outputDir, 'branding', 'generated-icon-draft.png'), image.toPNG())
   app.quit()
 })

@@ -9,10 +9,14 @@ let mainWindow
 let tray
 let database
 let allowQuit = false
+const APP_NAME = '炉火营地'
+const APP_ID = 'com.personal.hearthcamp'
+const APP_ICON_PATH = path.join(__dirname, '..', 'assets', 'branding', 'app-icon.png')
 
 function trayIcon() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="7" fill="#171c2d"/><path d="M6 16.5 10 12l3 2.4L18.5 7" fill="none" stroke="#9eaaff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="7" r="2" fill="#79d8b5"/></svg>`
-  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`).resize({ width: 16, height: 16 })
+  // Windows 的通知区域对运行时 SVG 的支持并不稳定，直接使用项目图标。
+  const image = nativeImage.createFromPath(APP_ICON_PATH)
+  return image.isEmpty() ? nativeImage.createEmpty() : image.resize({ width: 16, height: 16 })
 }
 
 function showWindow() {
@@ -24,9 +28,9 @@ function showWindow() {
 function createTray() {
   if (tray) return
   tray = new Tray(trayIcon())
-  tray.setToolTip('成长轨迹')
+  tray.setToolTip(APP_NAME)
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: '打开成长轨迹', click: showWindow },
+    { label: `打开${APP_NAME}`, click: showWindow },
     { type: 'separator' },
     { label: '退出', click: () => { allowQuit = true; app.quit() } },
   ]))
@@ -40,7 +44,8 @@ function createWindow() {
     minWidth: 980,
     minHeight: 680,
     backgroundColor: '#0b0e16',
-    title: '成长轨迹',
+    title: APP_NAME,
+    icon: APP_ICON_PATH,
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -80,7 +85,7 @@ function createWindow() {
     if (!allowQuit) {
       event.preventDefault()
       mainWindow.hide()
-      if (Notification.isSupported()) new Notification({ title: '成长轨迹仍在运行', body: '计时器已留在系统托盘。' }).show()
+      if (Notification.isSupported()) new Notification({ title: `${APP_NAME}仍在运行`, body: '计时器已留在系统托盘。' }).show()
     }
   })
 }
@@ -123,7 +128,7 @@ function parseResponseText(response) {
 // ── Angel letter AI narrative ───────────────────────────────
 
 const ANGEL_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts', 'angel-letter.txt'), 'utf-8')
-const ANGEL_PROMPT_VERSION = 1
+const ANGEL_PROMPT_VERSION = 4
 
 async function generateLetterNarrative(letter) {
   return generateAngelNarrative({
@@ -348,6 +353,7 @@ function registerHandlers() {
   handle('area:delete', (id) => database.deleteArea(id))
   handle('goal:create', (data) => database.createGoal(data))
   handle('goal:update', ({ id, data }) => database.updateGoal(id, data))
+  handle('goal:delete', (id) => database.deleteGoal(id))
   handle('goal:archive', (id) => database.archiveGoal(id))
   handle('goal:restore', (id) => database.restoreGoal(id))
   handle('task:create', (data) => database.createTask(data))
@@ -364,6 +370,9 @@ function registerHandlers() {
   handle('session:resume', (id) => database.resumeSession(id))
   handle('session:stop', ({ id, data }) => database.stopSession(id, data))
   handle('session:cancel', (id) => database.cancelSession(id))
+  handle('caravan:buy', ({ sessionId, slotIndex }) => database.buyCaravanItem(sessionId, slotIndex))
+  handle('bard:claim', (sessionId) => database.claimBardPoem(sessionId))
+  handle('bard:list', () => database.getPoetryCollection())
     handle('companions:get', () => database.getCompanionCollection())
     handle('companions:set-active', (id) => database.setActiveCompanion(id))
     handle('companions:rename', ({ id, nickname }) => database.renameCompanion(id, nickname))
@@ -394,6 +403,10 @@ function registerHandlers() {
   handle('settings:open-data-folder', async () => shell.openPath(database.openDataPath()))
   handle('ai:generate', ({ type, date }) => generateAiReport(type, date))
   handle('inventory:use', (itemId) => database.useItem(itemId))
+  handle('inventory:use-target', ({ itemId, companionId }) => database.useItem(itemId, companionId))
+  handle('hearth:get', () => database.getHearthState())
+  handle('hearth:set-lit', (lit) => database.setHearthLit(lit))
+  handle('hearth:craft', (recipeId) => database.useHearthRecipe(recipeId))
   handle('observatory:get-daily', (dateOrTimestamp) => {
     const d = require('./domain.cjs')
     const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
@@ -498,6 +511,8 @@ function registerHandlers() {
   })
   ipcMain.on('window:show', showWindow)
 }
+
+app.setAppUserModelId(APP_ID)
 
 app.whenReady().then(async () => {
   database = await new StudyDatabase(app.getPath('userData')).init()

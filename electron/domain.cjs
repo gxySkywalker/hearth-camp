@@ -485,6 +485,10 @@ function generateDailyTemplate(facts, seedInput) {
   const direction = narrativeDirectionName(journey.mainDirectionNarrative)
   const taskMarks = namedMarks(journey.completedTasks)
   const discoveries = namedMarks(chronicle.newDiscoveries || journey.discoveries, 2)
+  const stories = journey.expeditionStories || {}
+  const companionsMet = namedMarks(stories.companionsMet, 2)
+  const locations = namedMarks(stories.locations, 2)
+  const rareFinds = namedMarks(stories.rareFinds, 2)
   const hasJourneyRecord = hasSession || taskMarks.length > 0 || discoveries.length > 0
 
   if (!hasJourneyRecord && f(facts, 'hasWrittenReview')) {
@@ -497,13 +501,16 @@ function generateDailyTemplate(facts, seedInput) {
   const parts = []
   if (departures > 0) parts.push(`今天你一共踏上了${departures}次出征，来路都落在地图上。`)
   if (direction) parts.push(`今天的旅途主要朝着${direction}延伸。`)
+  if (companionsMet.length) parts.push(`听说你在路上遇见了${companionsMet.map((name) => `「${name}」`).join('、')}。我在木格旁留了一点位置，等它慢慢熟悉这段路。`)
+  else if (locations.length) parts.push(`今天的地图上，又留下了${locations.map((name) => `「${name}」`).join('、')}这几处脚印。`)
   const taskSentence = marksSentence(taskMarks, '路标')
   if (taskSentence) parts.push(taskSentence)
   else parts.push('今天留下的足迹，我已经按着来路收进星页里。')
   if (observatory.hasWrittenReview) parts.push('天文台旁还留着你写下的一句话，我也一并夹进了信札。')
   else parts.push('天文台把这段来路安静地记在了今日的星页上。')
-    if (discoveries.length) parts.push(`${season}天的冒险日志收下了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
+  if (discoveries.length) parts.push(`${season}天的冒险日志收下了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
   else parts.push(`${season}天的这一页，我已经和今日的足迹放在一起。`)
+  if (rareFinds.length) parts.push(`行囊里带回的${rareFinds.map((name) => `「${name}」`).join('、')}，我也替你在清单上记好了。`)
   parts.push(weatherNote(season, seed))
   parts.push('我把今天的记录收进木格里了。')
   return parts.join('')
@@ -559,11 +566,17 @@ function generateWeeklyTemplate(facts, seedInput) {
   const direction = narrativeDirectionName(journey.mainDirectionNarrative)
   const taskMarks = namedMarks(journey.completedTasks)
   const discoveries = namedMarks(chronicle.newDiscoveries || journey.discoveries, 3)
+  const stories = journey.expeditionStories || {}
+  const companionsMet = namedMarks(stories.companionsMet, 3)
+  const locations = namedMarks(stories.locations, 3)
+  const rareFinds = namedMarks(stories.rareFinds, 3)
   const parts = []
 
   parts.push(WEEKLY_OPENINGS[seed % WEEKLY_OPENINGS.length])
   if (departures > 0) parts.push(`这七天里，你一共踏上了${departures}次出征；每一段来路都收在这份札记里。`)
   if (direction) parts.push(`这周的路大多向${direction}那边伸去。`)
+  if (companionsMet.length) parts.push(`我还听说，你在这周的路上遇见了${companionsMet.map((name) => `「${name}」`).join('、')}。邮局的灯为这段新的同行多亮了一会儿。`)
+  else if (locations.length) parts.push(`这周的地图上，多了${locations.map((name) => `「${name}」`).join('、')}这些被好好走过的地方。`)
   const taskSentence = marksSentence(taskMarks, '代表性的路标')
   if (taskSentence) parts.push(taskSentence)
   else parts.push('这一周留下的路标，我都按日期夹在札记里。')
@@ -579,8 +592,9 @@ function generateWeeklyTemplate(facts, seedInput) {
     parts.push(WEEKLY_SAME[seed % WEEKLY_SAME.length])
   }
 
-    if (discoveries.length) parts.push(`${season}天的冒险日志这一页添进了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
-    else parts.push(`${season}天的冒险日志把这一周的来路收好了。`)
+  if (discoveries.length) parts.push(`${season}天的冒险日志这一页添进了新的发现：${discoveries.map((name) => `「${name}」`).join('、')}。`)
+  else parts.push(`${season}天的冒险日志把这一周的来路收好了。`)
+  if (rareFinds.length) parts.push(`还有${rareFinds.map((name) => `「${name}」`).join('、')}，我替你收在这周的旅途清单里。`)
   if (seed % 4 === 0) parts.push(weatherNote(season, seed))
 
   parts.push(WEEKLY_CLOSINGS[seed % WEEKLY_CLOSINGS.length])
@@ -604,6 +618,37 @@ function buildJourneyFacts(stats) {
     mainDirection: mainDirection?.name || null,
     mainDirectionNarrative: mainDirection ? { name: mainDirection.name, source: mainDirection.source } : null,
     hasOutcome: stats.hasOutcome === true,
+    expeditionStories: stats.expeditionStories || { locations: [], moments: [], companionsMet: [], companionsTravelled: [], rareFinds: [] },
+  }
+}
+
+function buildExpeditionStories(db, start, end, limit = 8) {
+  const rows = db.all(`SELECT location, event_text, rewards_json
+    FROM expeditions WHERE created_at >= ? AND created_at < ?
+    ORDER BY created_at ASC LIMIT ?`, [start, end, limit])
+  const unique = (items, max = 3) => [...new Set(items.filter(Boolean))].slice(0, max)
+  const locations = []
+  const moments = []
+  const companionsMet = []
+  const companionsTravelled = []
+  const rareFinds = []
+  for (const row of rows) {
+    locations.push(String(row.location || '').trim())
+    moments.push(String(row.event_text || '').trim())
+    let rewards = {}
+    try { rewards = JSON.parse(row.rewards_json || '{}') } catch {}
+    if (rewards.newCompanion?.nickname) companionsMet.push(String(rewards.newCompanion.nickname))
+    if (rewards.activeCompanion?.nickname) companionsTravelled.push(String(rewards.activeCompanion.nickname))
+    for (const drop of rewards.drops || []) {
+      if (['rare', 'precious'].includes(drop?.item?.rarity)) rareFinds.push(String(drop.item.name || ''))
+    }
+  }
+  return {
+    locations: unique(locations),
+    moments: unique(moments, 2),
+    companionsMet: unique(companionsMet),
+    companionsTravelled: unique(companionsTravelled),
+    rareFinds: unique(rareFinds),
   }
 }
 
@@ -703,7 +748,7 @@ function buildDailyStatsForFacts(db, period) {
     LEFT JOIN world_nodes n ON d.kind = 'node' AND n.id = d.target_id
     WHERE d.created_at >= ? AND d.created_at < ? AND COALESCE(r.name, n.name) IS NOT NULL
     ORDER BY d.created_at ASC LIMIT 5`, [period.periodStart, period.periodEnd])
-  return { ...stats, periodKey: period.periodKey, periodStart: period.periodStart, completedTasks, discoveries, hasWrittenReview, hasOutcome }
+  return { ...stats, periodKey: period.periodKey, periodStart: period.periodStart, completedTasks, discoveries, expeditionStories: buildExpeditionStories(db, period.periodStart, period.periodEnd), hasWrittenReview, hasOutcome }
 }
 
 function buildWeeklyStatsForFacts(db, period) {
@@ -740,7 +785,7 @@ function buildWeeklyStatsForFacts(db, period) {
     LEFT JOIN world_nodes n ON d.kind = 'node' AND n.id = d.target_id
     WHERE d.created_at >= ? AND d.created_at < ? AND COALESCE(r.name, n.name) IS NOT NULL
     ORDER BY d.created_at ASC LIMIT 8`, [period.periodStart, period.periodEnd])
-  return { ...stats, periodKey: period.periodKey, periodStart: period.periodStart, dailyActiveSeconds, completedTasks, discoveries, weeklyObservatoryNote, hasWrittenReview: review ? review.count > 0 : false, hasOutcome }
+  return { ...stats, periodKey: period.periodKey, periodStart: period.periodStart, dailyActiveSeconds, completedTasks, discoveries, expeditionStories: buildExpeditionStories(db, period.periodStart, period.periodEnd, 16), weeklyObservatoryNote, hasWrittenReview: review ? review.count > 0 : false, hasOutcome }
 }
 
 const TIME_WINDOWS = [

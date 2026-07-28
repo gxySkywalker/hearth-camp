@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 // @ts-expect-error The Electron game module is CommonJS and intentionally shared with tests.
 import game from '../../electron/game.cjs'
 
-const { durationTier, rollExpedition, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
+const { durationTier, rollExpedition, rollCaravanEncounter, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
 
 describe('expedition rules', () => {
   it('improves reward tiers with healthy duration caps', () => {
@@ -17,17 +17,35 @@ describe('expedition rules', () => {
     const second = rollExpedition({ sessionId: 'same-session', activeSeconds: 45 * 60, rarePity: 9, companionPity: 7, ownedSpeciesIds: ['hearth_hound'] })
     expect(second).toEqual(first)
     expect(first.rareFound).toBe(true)
-    expect(first.companionChance).toBeCloseTo(0.04)
+    expect(first.companionChance).toBeCloseTo(0.06)
   })
 
   it('has the four loot grades and applies expedition boosts to the correct rolls', () => {
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'common')).toHaveLength(4)
-    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'uncommon')).toHaveLength(2)
-    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'rare')).toHaveLength(4)
-    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'precious')).toHaveLength(2)
+    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'uncommon')).toHaveLength(7)
+    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'rare')).toHaveLength(5)
+    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'precious')).toHaveLength(3)
     const boosted = rollExpedition({ sessionId: 'boosted', activeSeconds: 5 * 60, ownedSpeciesIds: ['hearth_hound'], rareBoost: true, nightRareBoost: true, companionBoost: true })
     expect(boosted.rareChance).toBeCloseTo(0.14)
-    expect(boosted.companionChance).toBeCloseTo(0.1001)
+    expect(boosted.companionChance).toBeCloseTo(0.101)
+  })
+
+  it('adds a second rare-journey keepsake slot to long expeditions', () => {
+    expect(durationTier(60 * 60)).toMatchObject({ uncommonCount: 2, uncommonChance: 0.40 })
+    expect(durationTier(90 * 60)).toMatchObject({ uncommonCount: 2, uncommonChance: 0.50 })
+    expect(durationTier(60 * 60).commonCount).toBe(3)
+    expect(durationTier(90 * 60).commonCount).toBe(4)
+  })
+
+  it('only brings a fixed five-slot caravan to evening departures, with one repeated item', () => {
+    expect(rollCaravanEncounter({ sessionId: 'noon', activeSeconds: 90 * 60, startedAt: new Date(2026, 6, 27, 12).getTime() })).toBeNull()
+    let caravan: any = null
+    for (let index = 0; index < 40 && !caravan; index += 1) caravan = rollCaravanEncounter({ sessionId: `caravan-${index}`, activeSeconds: 90 * 60, startedAt: new Date(2026, 6, 27, 18).getTime() })
+    expect(caravan).not.toBeNull()
+    expect(caravan.items).toHaveLength(5)
+    expect(caravan.chance).toBe(0.70)
+    expect(caravan.items.every((entry: any) => entry.item.rarity !== 'common')).toBe(true)
+    expect([...new Set(caravan.items.map((entry: any) => entry.item.id))]).toHaveLength(4)
   })
 
   it('uses fixed bond chapters and resolves final growth from local time', () => {

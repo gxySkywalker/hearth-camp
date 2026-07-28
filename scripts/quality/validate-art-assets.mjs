@@ -4,7 +4,7 @@ import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const artRoot = resolve(repoRoot, 'assets', 'art')
 const manifestPath = resolve(artRoot, 'manifest.json')
 const failures = []

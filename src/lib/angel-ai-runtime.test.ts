@@ -44,8 +44,16 @@ describe('angel AI runtime', () => {
     expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-v4-flash' })
     expect(fetchImpl).toHaveBeenCalledWith('https://api.deepseek.com/v1/chat/completions', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer key' }) }))
     const system = JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content
+    const request = JSON.parse(fetchImpl.mock.calls[0][1].body)
+    expect(request.max_tokens).toBe(900)
     for (const key of ['period', 'stats', 'journey', 'observatory', 'chronicle']) expect(system).toContain(`\"${key}\"`)
     expect(system).not.toContain('postOfficeDetail')
+  })
+
+  it('keeps distinct daily and weekly length guidance in the prompt asset', () => {
+    const promptText = readFileSync(resolve(process.cwd(), 'electron/prompts/angel-letter.txt'), 'utf8')
+    expect(promptText).toContain('daily：120–180 字')
+    expect(promptText).toContain('weekly：200–300 字')
   })
 
   it('isolates AI narrative facts from database schema and internal direction fields', () => {
@@ -76,13 +84,29 @@ describe('angel AI runtime', () => {
       ...letter,
       letter_type: 'weekly',
       fact_json: JSON.stringify({
-        letterType: 'weekly', period: { periodKey: '2026-07-20' }, stats: { sessionCounts: { expedition: 1 } },
+        letterType: 'weekly', period: { periodKey: '2026-07-20' }, stats: { totalActiveSeconds: 5400, sessionCounts: { expedition: 1 } },
         journey: { completedTasks: [] },
         observatory: { hasWrittenReview: true, weeklyNote: '终于看清了河湾的旧路。' },
         chronicle: {}, worldState: {},
       }),
     }
-    expect(buildNarrativeFactEnvelope(weeklyLetter).observatory).toEqual({ hasWrittenReview: true, weeklyNote: '终于看清了河湾的旧路。' })
+    const envelope = buildNarrativeFactEnvelope(weeklyLetter)
+    expect(envelope.observatory).toEqual({ hasWrittenReview: true, weeklyNote: '终于看清了河湾的旧路。' })
+    expect(envelope.stats.weeklyTotalActiveSeconds).toBe(5400)
+  })
+
+  it('exposes only the curated real expedition details needed for immersive letters', () => {
+    const richLetter = {
+      ...letter,
+      fact_json: JSON.stringify({
+        letterType: 'daily', period: { periodKey: '2026-07-20' }, stats: { sessionCounts: { expedition: 1 } },
+        journey: { completedTasks: [], expeditionStories: { locations: ['雾谷石阶'], moments: ['你们在树下等候短雨。'], companionsMet: ['灯团'], companionsTravelled: ['栗子'], rareFinds: ['月银罗盘'] } },
+        observatory: {}, chronicle: {}, worldState: {},
+      }),
+    }
+    expect(buildNarrativeFactEnvelope(richLetter).journey.expeditionStories).toEqual({
+      locations: ['雾谷石阶'], moments: ['你们在树下等候短雨。'], companionsMet: ['灯团'], companionsTravelled: ['栗子'], rareFinds: ['月银罗盘'],
+    })
   })
 
   it('keeps postal user text free of the weekly-report label', () => {

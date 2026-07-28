@@ -1,0 +1,22 @@
+[
+  {"id":"golden-clothes","text":"劝君莫惜金缕衣，劝君惜取少年时。\n花开堪折直须折，莫待无花空折枝。","source":"杜秋娘《金缕衣》","encouragement":"好时光稍纵即逝呢。把眼前能做的小事认真走完，别把想开始的路留给以后。"},
+  {"id":"mencius","text":"穷则独善其身，达则兼善天下。","source":"《孟子·尽心上》","encouragement":"别着急。花有花期，人有时运；先把根扎稳，等枝头有力时，自会照亮更多人。"},
+  {"id":"tagore-stars","text":"If you shed tears when you miss the sun, you also miss the stars.\n如果你因失去太阳而流泪，那么你也将失去群星了。","source":"Rabindranath Tagore, Stray Birds / 泰戈尔《飞鸟集》","encouragement":"别盯着已熄灭的灯火发呆呀。抬头看看，整片星空仍在为你亮着。"},
+  {"id":"li-bai-wave","text":"长风破浪会有时，直挂云帆济沧海。","source":"李白《行路难·其一》","encouragement":"眼前的水路也许还不平，但船帆可以先收好。等风来时，你已经准备出发。"},
+  {"id":"du-fu-summit","text":"会当凌绝顶，一览众山小。","source":"杜甫《望岳》","encouragement":"不必急着把每座山都越过。今日多走一步，脚下的路就会多一分开阔。"},
+  {"id":"xunzi-steps","text":"故不积跬步，无以至千里；不积小流，无以成江海。","source":"《荀子·劝学》","encouragement":"你不需要一口气抵达远方。今天留下的一小段专注，会和明天一起汇成河流。"},
+  {"id":"yuan-mei-moss","text":"苔花如米小，也学牡丹开。","source":"袁枚《苔》","encouragement":"不必等到被看见才开始生长。你认真开出的每一朵小花，都有自己的春天。"},
+  {"id":"wang-bo-friend","text":"海内存知己，天涯若比邻。","source":"王勃《送杜少府之任蜀州》","encouragement":"同行不一定总在身边。那些愿意理解你的人，会在各自的路上与你遥遥相望。"},
+  {"id":"lu-you-path","text":"山重水复疑无路，柳暗花明又一村。","source":"陆游《游山西村》","encouragement":"走到觉得没有路的时候，先别急着转身。再绕过一个弯，也许就有新的村落和灯火。"},
+  {"id":"wang-an-shi-cloud","text":"不畏浮云遮望眼，自缘身在最高层。","source":"王安石《登飞来峰》","encouragement":"杂音会来，也会散。把目光放回你真正珍视的方向，脚步就不会被带乱。"},
+  {"id":"zheng-xie-bamboo","text":"千磨万击还坚劲，任尔东西南北风。","source":"郑燮《竹石》","encouragement":"风会改变方向，你可以调整姿势，却不必丢掉内心想守住的事。"},
+  {"id":"lu-you-practice","text":"纸上得来终觉浅，绝知此事要躬行。","source":"陆游《冬夜读书示子聿》","encouragement":"知道一件事很好，亲手试一次更好。今天就把最小的那一步，放到现实里。"},
+  {"id":"meng-jiao-study","text":"青春须早为，岂能长少年。","source":"孟郊《劝学》","encouragement":"珍惜并不等于催赶自己。趁还有好奇心时，为真正想去的地方认真准备。"},
+  {"id":"liu-yuxi-spring","text":"沉舟侧畔千帆过，病树前头万木春。","source":"刘禹锡《酬乐天扬州初逢席上见赠》","encouragement":"旧的停在身后，不代表春天也停了。路上仍有新的船帆和新芽等你看见。"},
+  {"id":"dickinson-hope","text":"Hope is the thing with feathers / That perches in the soul.\n希望是栖在灵魂上的有羽之物。","source":"Emily Dickinson, “Hope” is the thing with feathers / 艾米莉·狄金森《“希望”是有羽之物》","encouragement":"哪怕风很轻，心里那只小鸟也会继续唱。你可以先听见它，再慢慢往前走。"},
+  {"id":"blake-world","text":"To see a World in a Grain of Sand / And a Heaven in a Wild Flower.\n从一粒沙里看见一个世界，从一朵野花里看见一座天堂。","source":"William Blake, Auguries of Innocence / 威廉·布莱克《天真的预言》","encouragement":"别忽略路边微小的发现。认真看一看，平常的一天也能给你新的方向。"},
+  {"id":"frost-woods","text":"The woods are lovely, dark and deep, / But I have promises to keep.\n树林可爱、幽暗而深邃，但我还有要守的约定。","source":"Robert Frost, Stopping by Woods on a Snowy Evening / 罗伯特·弗罗斯特《雪夜林边停留》","encouragement":"可以在风景前停一会儿。休息不是放弃；带着想守住的约定，再继续赶路。"},
+  {"id":"kipling-if","text":"If you can fill the unforgiving minute / With sixty seconds’ worth of distance run.\n若你能把无情的一分钟，填满六十秒值得奔跑的路。","source":"Rudyard Kipling, If— / 拉迪亚德·吉卜林《如果》","encouragement":"不用和谁赛跑。把这一分钟安稳地用在眼前的事上，它就已经属于你。"},
+  {"id":"whitman-song","text":"I exist as I am, that is enough.\n我就这样存在着，这已经足够。","source":"Walt Whitman, Song of Myself / 沃尔特·惠特曼《自我之歌》","encouragement":"你不必先变成谁，才配开始一段旅程。带着现在的自己，也能一步步走远。"},
+  {"id":"stevenson-hope","text":"The world is so full of a number of things, / I’m sure we should all be as happy as kings.\n世界充满了许多事物，我相信我们都能像国王一样快乐。","source":"Robert Louis Stevenson, Happy Thought / 罗伯特·路易斯·史蒂文森《快乐的念头》","encouragement":"今天不必很宏大。收下一点温暖、一阵风、一份同行的心意，也足够让旅程明亮。"}
+]

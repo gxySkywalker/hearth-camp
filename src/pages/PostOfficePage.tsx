@@ -363,6 +363,7 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
           return (
             <button
               key={letter.id}
+              data-ui-sound="mail_open"
               className={`mail-env ${isSelected ? 'selected' : ''} ${unread ? 'unread' : 'read'} ${openingId === letter.id ? 'opening' : ''} ${isLetterFocused(i) ? 'kb-focused' : ''}`}
               onClick={() => { playUISound('select'); dispatch({ type: 'SET_PO_LETTER_INDEX', index: i }); openLetter(letter); dispatch({ type: 'SET_PO_ZONE', poZone: 'content' }) }}
               aria-label={`${letter.subject} — ${letter.senderName}`}

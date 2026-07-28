@@ -1,187 +1,256 @@
-# 成长轨迹（Growth Arc）项目交接文档 v0.7.0
+# 炉火营地（Hearth Camp）项目交接文档 v0.8.0
 
-> 更新日期：2026-07-26
-> 面向下一次 Codex 会话。当前任务在此处暂停；本交接仅记录状态，**没有待提交的代码改动**。
-
----
-
-## 0. 新会话必须先做什么
-
-在改代码、改文案、改美术或安装任何新工具之前，按顺序完整阅读：
-
-1. `docs/WORLD_BIBLE.md` —— 世界观、主题与玩家体验。
-2. `docs/COMPANION_PRODUCTION_RULES.md` —— 伙伴不是工具、命名/三阶段/美术规则。
-3. `docs/COMPANION_SPRITE_ATLAS_SPEC.md` —— 图集尺寸、方向、基线与裁切合同。
-4. 八份伙伴档案：
-   - `docs/COMPANION_MOSS_SPROUT_PROFILE.md`
-   - `docs/COMPANION_NIGHTLIGHT_CAT_PROFILE.md`
-   - `docs/COMPANION_RIVER_OTTER_PROFILE.md`
-   - `docs/COMPANION_IRON_BADGER_PROFILE.md`
-   - `docs/COMPANION_DUSK_OWL_PROFILE.md`
-   - `docs/COMPANION_CLOUD_RABBIT_PROFILE.md`
-   - `docs/COMPANION_EMBER_DRAKE_PROFILE.md`
-   - 栗子设定以 `docs/WORLD_BIBLE.md`、`electron/game.cjs` 与既有资源为准。
-5. `docs/EXPEDITION_LOOT.md` —— 当前掉落和相遇数值的唯一说明。
-6. 邮局相关：`docs/TIME_AND_MAIL_SYSTEM.md`、`docs/mail-system-v0.7.md`、`docs/ANGEL_POST_OFFICE_PROPOSAL.md`。
-7. 本文档与根目录 `README.md`、`CHANGELOG.md`。
-
-禁止跳过世界观与伙伴规则后直接“优化”数值、改名、重构伙伴，或以效率工具的思路改写玩家可见内容。
+> 更新日期：2026-07-28
+> 面向下一次 Codex 会话。本文记录已发布版本、冻结边界、暂停内容与安全起点。
 
 ---
 
-## 1. 项目定位与不可违反原则
+## 0. 新会话的强制起手式
 
-**成长轨迹**是本地优先、单人游玩的像素生活 RPG / 旅途记录游戏。Electron 只是技术载体；玩家应该感到自己住在温暖的中世纪边境世界中，出发、归来，并被世界和同行者记住。
+在修改代码、文档、美术、数据或安装工具前，必须按顺序完整阅读：
 
-核心循环：
+1. `docs/PROJECT_HANDOFF.md`（本文）
+2. `docs/WORLD_BIBLE.md`
+3. `docs/companions/COMPANION_PRODUCTION_RULES.md`
+4. `docs/companions/COMPANION_SPRITE_ATLAS_SPEC.md`
+5. 伙伴档案：
+   - `docs/companions/COMPANION_MOSS_SPROUT_PROFILE.md`
+   - `docs/companions/COMPANION_NIGHTLIGHT_CAT_PROFILE.md`
+   - `docs/companions/COMPANION_RIVER_OTTER_PROFILE.md`
+   - `docs/companions/COMPANION_IRON_BADGER_PROFILE.md`
+   - `docs/companions/COMPANION_DUSK_OWL_PROFILE.md`
+   - `docs/companions/COMPANION_CLOUD_RABBIT_PROFILE.md`
+   - `docs/companions/COMPANION_EMBER_DRAKE_PROFILE.md`
+   - 栗子以 `docs/WORLD_BIBLE.md`、`electron/game.cjs` 与既有资源为准
+6. `docs/systems/expedition/EXPEDITION_LOOT.md`
+7. 邮局文档：`docs/systems/post-office/TIME_AND_MAIL_SYSTEM.md`、`docs/systems/post-office/MAIL_SYSTEM_v0.7.md`、`docs/systems/post-office/ANGEL_POST_OFFICE_PROPOSAL.md`
+8. 根目录 `README.md` 与 `CHANGELOG.md`
+
+阅读后先向用户复述：世界观、设计红线、当前版本状态、发现的风险、针对下一条需求的计划；得到明确同意后才开始修改。
+
+---
+
+## 1. 项目定位与不可违反的红线
+
+**炉火营地**是本地优先、单人游玩的像素生活 RPG / 旅途记录游戏。技术上是 Electron + React + PixiJS；体验上应是旅人从炉火小屋出发、专注一段真实时间、归来并被世界与伙伴温柔记住。
+
+当前正式核心循环：
 
 ```text
-炉火小屋（家） → 小镇与道路 → 出征探索 → 伙伴同行与世界发现 → 回到小屋 → 邮局与冒险日志保存经历
+炉火小屋（家） → 直接开始远征 → 归程与收获 → 伙伴同行 / 冒险日志 / 天使邮局 → 回到小屋
 ```
 
-设计红线：
+### 世界与伙伴红线
 
-- 玩家是旅人，不是被管理或被考核的人。
+- 玩家是旅人，不是被管理、考核或优化的人；不要用 KPI、效率、打卡工具语言改写玩家体验。
 - 世界不是仪表盘；离开没有惩罚，归来应被温柔接住。
-- 伙伴是共同生活、共同经历的朋友，不是装备、战斗单位、效率加成、资源机器或每日打卡对象。
-- 伙伴可以影响互动文本、共同记忆、环境观察和小屋存在感；不能承担掉率、经验、速度、战斗或自动化收益。
-- 邮局将真实事实整理成信；不得虚构玩家未发生的经历、地点或 NPC。
-- 玩家可见文案使用旅途词汇（出征、归程、足迹、星轨、路标等），避免“效率、统计、专注、KPI”等产品语言。
+- 八位伙伴、美术资源、伙伴生态位、三阶段成长线与羁绊阈值均已冻结。
+- 伙伴是朋友和共同生活者，不是装备、数值工具、效率工具、战斗单位、自动化或资源机器。
+- 未经用户明确授权，禁止重构、重新命名伙伴，禁止改变羁绊阈值、核心情感、生态位或已冻结美术方向。
+- 伙伴可影响记忆、环境观察、互动文本与小屋存在感；不可给予掉率、经验、速度、战斗或自动化收益。
+
+### 世界边界与未来内容
+
+- 不擅自扩展交易、商店、地图解锁、疾病、药汤、合成、NPC 送礼等未来内容。
+- 天使邮局负责把真实发生的旅程整理成信：不得虚构玩家未经历的地点、事件或 NPC 私事。
+- 不改动天使邮局生命周期、AI 调用链或世界状态边界，除非用户明确指定。
+- 玩家可见文案优先使用旅途词汇：出征、归程、足迹、星轨、路标、冒险日志等。
 
 ---
 
-## 2. 当前版本与已完成内容
+## 2. 已发布版本与 GitHub 状态
 
-### 版本
+- 当前正式版本：**v0.8.0 - 炉火营地公开内测版**
+- `package.json` 版本：`0.8.0`
+- 分支：`master`，发布时同步推送至 `origin`
+- GitHub Release：<https://github.com/gxySkywalker/growth-arc/releases/tag/v0.8.0>
+- v0.8.0 是公开内测版（不是 draft / prerelease），README 与 Release 说明同步更新。
+- Windows x64 NSIS 安装包：`炉火营地 Setup 0.8.0.exe`；SHA-256 见 `docs/releases/v0.8.0.md`。
 
-- 当前发布版本：**v0.7.0 — 旅途生态与星图修复**（2026-07-24）。
-- `package.json`：`0.7.0`。
-- 已发布 Release：`v0.7.0`。
-- 本次交接没有升级版本、修改发布物或提交代码。
+### v0.8.0 公开内测内容
 
-### 已完成系统
+1. **完整核心循环**：炉火小屋、制图桌、真实远征、结算、背包、掉落、升级、冒险日志与天文台均可用。
+2. **伙伴营地**：八位伙伴的生态位、成长形态、羁绊、共同记忆、小屋对话与专属纪念物已接入。
+3. **旅途扩展**：商队、吟游诗人、诗集、炉火制作、伙伴生病与地图碎片解锁地点已加入正式循环。
+4. **天使邮局与 AI**：每日星笺、每周札记、节日 / 生日来信、可选 AI 润色与安全回退均可用。
+5. **文档与命名**：产品正式更名为炉火营地；文档、脚本与品牌资源已分类整理。
 
-- Electron + React 19 + TypeScript + Vite + PixiJS；`sql.js` 本地 SQLite，数据不上传。
-- 炉火小屋：角色移动、碰撞、家具热点、壁炉、同行伙伴与 PixiJS 小屋表现。
-- 出征：正计时、暂停/休眠恢复、多路标结算、返程结果、冒险日志与知识遗物。
-- 伙伴营地：同行图鉴、个体性格/习惯/小毛病、共同记忆、改名和三阶段成长。
-- 天使邮局：欢迎/每日/每周/归灯节/生日信；DeepSeek 与 OpenAI 的 Key 使用 Windows DPAPI 保存。配置测试、每日与每周 AI 润色共用请求链路。
-- 天文台：日/周视图、24 小时星图、热力图与柱图；已修复异步数据到达和标签切换导致的偶发空白。
-- 出征物品：普通、罕见、稀有、珍稀四级；背包使用的像素确认窗口和悬浮说明已统一。
-- 美术：八位伙伴均有三阶段营地肖像、四方向运行时图集和 PixiJS 阶段尺寸表现。
+### 发布验证记录
 
-### 已完成伙伴（八位）
+在 v0.8.0 发布前已通过：
+
+```powershell
+npm test             # 250 tests passed
+npm run art:validate # passed
+npm run build         # passed
+```
+
+Vite 主 chunk 体积警告仍存在，但只是性能提示，不是发布阻塞；用户未要求性能专项时不要为消除该警告进行大规模拆包。
+
+### 发布注意
+
+- 安装包当前未进行商业代码签名；发布页必须提供 SHA-256，并提醒用户只从仓库 Release 页面下载。
+- 如未来构建新版本：先在受控 Windows 环境运行 `npm run dist`，验证产物，再将 NSIS 文件作为 Release asset 上传。
+
+---
+
+## 3. 当前正式小屋实现
+
+### 关键文件
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/pages/CottagePage.tsx` | 小屋页面、伙伴对话、门口直接开始远征 |
+| `src/components/PixiCottageScene.tsx` | Pixi 画布、角色/伙伴、昼夜纹理切换、火焰、前景遮挡 |
+| `src/lib/cottage-scene.ts` | 移动、碰撞、交互热点、伙伴跟随/让路与位置记忆 |
+| `src/lib/cottage-lighting.ts` | 纯函数昼夜边界：06:00–17:59 为 day，其他为 night |
+| `src/pixi-cottage-scene.css` | Pixi 小屋与昼夜提示像素 UI |
+| `scripts/art/prepare-cottage-day-night-backdrops.mjs` | 将用户提供的 1672×941 日/夜源图归一化为 512×288 运行时底图 |
+
+### 小屋资源
+
+| 资源 | 用途 |
+| --- | --- |
+| `assets/art/environments/cottage/cottage_room_day_512_v1.png` | 日景运行时底图 |
+| `assets/art/environments/cottage/cottage_room_night_512_v1.png` | 夜景运行时底图 |
+| `assets/art/environments/cottage/cottage_hearth_fire_4frames_v1.png` | 夜景炉火四帧图集，48×48 × 4 |
+| `assets/art/reference/cottage_room_day_source_v1.png` | 用户确认的日景原图，1672×941 |
+| `assets/art/reference/cottage_room_night_source_v1.png` | 用户确认的夜景原图，1672×941 |
+| `assets/art/manifest.json` | 两张底图、火焰与来源关系的资源合同 |
+
+### 小屋修改时的约束
+
+- 小屋坐标系固定为 512×288；修改底图时必须同步审查 `FOREGROUND_OCCLUSION_SLICES`、家具碰撞区和交互热点。
+- 角色与伙伴是实体：同深度不可重叠；前后深度允许自然遮挡。
+- 伙伴应使用既有 48px 四方向运行图集，朝向与实际移动方向一致。
+- 交互优先级：面向 / 靠近的场景物件优先于伙伴对话；对话必须可用键盘左右切换、确认和退出。
+- `Esc` 默认用于从世界场景切换至侧边栏；首次进入小屋可直接移动。
+- Fire sprite 只在夜景显示，当前锚点是 `(79, 53)`，运行时尺寸 40×40；如更换底图，先视觉验证炉膛内位置。
+
+---
+
+## 4. 伙伴、远征与数据规则
+
+### 八位伙伴（冻结）
 
 | 成长线 | 情感位置 | 环境与视觉核心 |
 | --- | --- | --- |
 | 栗子：炉尾 → 栗鬃 → 炭尾 / 松影 / 月爪 | 被等待的归处 | 炉火、旧路、犬型低重心、栗色与旧铜铃 |
 | 枝绒 → 苔亚 → 森冠 | 陌生之处慢慢熟悉 | 林缘与雨后苔石；修长狐型、苔绿叶纹 |
-| 灯团 → 星烛 → 夜璃 | 夜里安静地同处 | 窗边/夜路；深靛猫型、暖金灯尾与星点 |
+| 灯团 → 星烛 → 夜璃 | 夜里安静地同处 | 窗边 / 夜路；深靛猫型、暖金灯尾与星点 |
 | 涟牙 → 漪爪 → 湾澜 | 沿途流过的时间值得记住 | 河湾浅滩；圆润水獭、水纹与扁尾 |
 | 小石獾 → 岩甲獾 → 铠獾王 | 先把脚下站稳 | 石阶山脚；低重心獾型、岩层背毛和宽爪 |
 | 暮羽子 → 咕夜枭 → 冥翔鹰鸮 | 未出口的念头也可留在夜色里 | 钟塔与夜间高处；宽圆鸮型、旧纸眼周、书页式展翼 |
-| 小丘 → 云丘兔 → 风茸旅兔 | 远方很宽，慢一点也不会错过 | 晒暖丘陵；垂耳、短绒尾、云灰浅麦；成长后在小屋中视觉尺寸更大 |
-| 小火牙 → 赤翼龙 → 余烬古龙 | 对辽阔未知保持敬意 | 边境群山；深铜灰褐鳞片、克制余烬亮点；后两阶段飞行 |
-
-这些伙伴的情感、环境、身体符号和动作语言已经刻意错开，当前没有应被合并或重命名的重复设计。除非用户明确授权，不得修改其名字、成长线、生态位、核心情感或已冻结美术方向。
-
----
-
-## 3. 出征掉落与相遇：当前真正规则
-
-权威详细表见 `docs/EXPEDITION_LOOT.md`。摘要：
-
-- 正式远征从 5 分钟开始结算；5–44/45–89/90+ 分钟固定普通物品为 1/2/3 件。
-- 按 `docs/EXPEDITION_LOOT.md` 逐项计数为 **12 件**：4 普通、2 罕见、4 稀有、2 珍稀。`README.md` 与 v0.7.0 更新日志仍写“11 件”，这是文档口径冲突；下次涉及掉落前应以 `electron/game.cjs` 实际表为准并统一文档，不能自行猜测删除哪件物品。
-- 可立即生效：莓果旅行面包（当前同行伙伴羁绊 +1）、河岸圆石（涟牙系 +3）、风丘羽毛（暮羽子系 +3）、古龙鳞片（小火牙系 +3）、月银罗盘、星辉玻璃、旅者银铃。
-- 收藏/未来内容不可误消耗：铜币、地图碎片、药草束、蜜色琥珀碎片、古塔残页。
-- 银铃**使用时立即从背包消失**，后台增加新伙伴总相遇概率 +10 个百分点；直至真实遇见一位新伙伴才清除状态，不是在相遇后才消耗银铃。
-- 基础总相遇概率依时长为 0.01% / 0.1% / 0.5% / 1% / 3% / 5%；连续 5 次未相遇后每次额外 +1 个百分点；无必定相遇；总上限 50%；相遇成功后恢复基础概率。尚未遇见的伙伴在本次可遇见对象中等权抽取。
-
-改动掉落或相遇逻辑前，必须同时检查 `electron/game.cjs`、`electron/database.cjs`、`src/types.ts`、物品展示/使用 UI、测试及 `docs/EXPEDITION_LOOT.md`，防止“文档已写、游戏未生效”。
-
----
-
-## 4. 技术架构与关键入口
-
-```text
-electron/main.cjs      Electron 窗口、IPC、AI 请求
-electron/preload.cjs   contextBridge：window.growthArc
-electron/database.cjs  SQLite、迁移、持久化、邮局和物品状态
-electron/game.cjs      伙伴定义、掉落与相遇随机逻辑
-src/                   React 页面、组件、PixiJS
-assets/art/            源图草稿、运行时图集、manifest
-scripts/               精灵裁切/生成与资源验证
-docs/                  世界观、规则、系统和交接文档
-```
-
-特别重要：
-
-- 前端为 ESM；`electron/*.cjs` 为 CommonJS。不要混用模块方式。
-- `src/types.ts` 是 preload API 的类型合同。增加 IPC 时必须同步改 main、preload、types 和调用点。
-- 数据库没有传统迁移编号，使用 `PRAGMA table_info` + 幂等 `ALTER TABLE`。任何存档结构变动必须兼容旧库。
-- API Key 只能使用 Electron `safeStorage` / Windows DPAPI，不能进 SQLite、localStorage、日志或 Git。
-- 掉落 RNG 需要保持确定性与既有存档兼容；不要随意替换算法。
-- React hooks 必须在所有 early return 之前，改动后要实际打开 Electron 页面做烟雾测试。
-- 图表处理异步请求时要取消/忽略过期请求，并在 DOM 容器已挂载且尺寸有效后初始化图表。
+| 小丘 → 云丘兔 → 风茸旅兔 | 远方很宽，慢一点也不会错过 | 晒暖丘陵；垂耳、短绒尾、云灰浅麦 |
+| 小火牙 → 赤翼龙 → 余烬古龙 | 对辽阔未知保持敬意 | 边境群山；深铜灰褐鳞片、克制余烬亮点 |
 
 ### 伙伴美术合同
 
-- 原始图必须保留在 `assets/art/drafts/<species>-forms/`。
-- 运行时资源在 `assets/art/characters/companions/`，每阶段营地肖像加 `walk_32` 与 `walk_48`。
-- 运行时 sheet 固定 4×4：front、back、left、right 四行，每行四帧。
-- 处理脚本：`scripts/prepare-cloud-rabbit-forms.mjs`、`scripts/prepare-ember-drake-forms.mjs`，以及同类既有脚本；资源清单：`assets/art/manifest.json`；校验：`scripts/validate-art-assets.mjs`。
-- 清背景时只能移除与边缘连通的底色；缩放使用 nearest-neighbor；统一脚底基线、避免模糊与自由拉伸。
-- 飞行伙伴（暮羽子系、小火牙后两阶段）在 PixiJS 中应略悬空，不能画成落地走路。
+- 原始图：`assets/art/drafts/<species>-forms/`。
+- 运行时资源：`assets/art/characters/companions/`。
+- walk atlas 固定 4×4：front、back、left、right 四行，每行四帧；同时维护 32 与 48 版本。
+- 缩放只能用 nearest-neighbor；统一脚底基线；背景清理仅移除与边缘连通的底色。
+- 飞行伙伴（暮羽子系、小火牙后两阶段）应略悬空，不应按落地走路呈现。
+
+### 出征与掉落
+
+- 权威说明：`docs/systems/expedition/EXPEDITION_LOOT.md`；实现重点在 `electron/game.cjs`、`electron/database.cjs` 与 `src/types.ts`。
+- 已知文档风险：旧 README / v0.7.0 文案曾写 11 件物品，`docs/systems/expedition/EXPEDITION_LOOT.md` 的逐项统计是 12 件。若用户未来要求改掉落，先以实际实现和该权威表复核，再统一文档；禁止猜测删除物品。
+- 不要重写既有随机算法或存档语义。
+
+### 数据与 AI
+
+- Electron 主进程：`electron/main.cjs`；数据库与迁移：`electron/database.cjs`；AI：`electron/angel-ai.cjs`。
+- 前端为 ESM，`electron/*.cjs` 为 CommonJS；新增 IPC 必须同步 main、preload、`src/types.ts` 与调用端。
+- 数据库迁移使用 `PRAGMA table_info` + 幂等 `ALTER TABLE`，必须兼容旧存档。
+- API Key 只能经 Electron `safeStorage` / Windows DPAPI 保存；不可进 SQLite、localStorage、日志或 Git。
 
 ---
 
-## 5. 运行、验证与发布
+## 5. 已暂停：小镇原型（不得擅自恢复）
 
-必须在项目目录执行命令：
+用户因画面模糊、眩晕感和 AI 全景图不可控，明确决定**暂停小镇设计与开发**。
+
+### 正式状态
+
+- 当前正式流程不进入小镇：`CottagePage` 的 `expedition` 动作直接调用原有远征。
+- 不要再生成小镇图、改小镇碰撞、改相机、接入 Godot，或把小镇重新连回小屋，除非用户明确重新授权。
+- 不要删除本地小镇草稿；它们保留为以后复盘材料，但不是正式功能或可发布资产。
+
+### 当前本地未提交的小镇草稿
+
+下列路径是暂停的小镇原型材料，**未包含于 v0.8.0 提交 / Release**：
+
+```text
+assets/art/drafts/border-town-topology-*.png
+assets/art/drafts/native-town/
+assets/art/drafts/town-vertical-slice-*.png
+assets/art/environments/town/
+docs/TOWN_*.md
+scripts/generate-native-town-slice-assets.ps1
+src/components/PixiTownScene.tsx
+src/lib/town-road-graph.ts
+src/lib/town-scene.ts
+src/lib/town-terrain.ts
+```
+
+还有两份未提交的小屋生图提示 / 布局材料：`docs/art/cottage/COTTAGE_512_IMAGE_PROMPTS.md`、`docs/art/cottage/COTTAGE_512_LAYOUT_SPEC.md`。它们不是运行时依赖，是否纳入未来文档提交须由用户决定。
+
+若未来用户决定重启小镇，必须先做**合理性审查与对抗性评审**，再由用户批准路线。优先方案是原生模块化像素资产、固定网格与单屏垂直切片验证；不要把 GPT Image 全景图反复缩放后直接作为运行时地图。
+
+---
+
+## 6. 开发、验证与发布流程
+
+在项目目录执行：
 
 ```powershell
 cd 'D:\study learning'
 npm run dev
-```
-
-验证基线：
-
-```powershell
 npm test
 npm run art:validate
 npm run build
 ```
 
-当前更新日志记录 v0.7.0 时为 231 项自动化测试、美术资源校验和生产构建通过。Vite 主 chunk 体积警告目前只是构建性能提示，不阻塞运行或打包；除非用户要求性能专项，不要为了消除警告而冒险大规模拆包。
+### Git / GitHub 环境事实
 
-发布 Windows 安装包：`npm run dist`。发布前检查 `README.md`、`CHANGELOG.md`、版本号与 GitHub Release 标题/正文一致。Git 状态必须由下一会话在可用 Git 环境确认；本会话的终端没有可用 `git` 命令，故**不能断言工作树是否干净**。
+- Git 安装在：`C:\Program Files\Git\cmd\git.exe`，但当前 PowerShell 环境可能未将其加入 PATH。
+- `gh` 已登录 `gxySkywalker`，具有 `repo` 权限；读取配置在受限沙箱可能被拒绝，需要经过用户授权的提升权限命令。
+- 当前远端：`https://github.com/gxySkywalker/growth-arc.git`。
+- 发布前应执行：`git status --short`、`git diff --check`、测试、资源校验、构建；有混合工作树时必须显式暂存，不得 `git add -A`。
+- 只有用户明确要求时才提交、推送、创建 release 或上传安装包。
 
----
+### Release 风格
 
-## 6. 已知风险与待办优先级
+Release 标题格式：`vX.Y.Z - 中文主题`。正文应沿用 v0.7.0 / v0.7.1 风格：
 
-### 当前不应继续的事项
-
-- 不重构已完成八位伙伴，不重新命名，不改变羁绊成长阈值或生态位。
-- 不自行扩展交易、地图解锁、疾病、药汤、火炉合成、NPC 送礼：它们目前是明确保留的未来内容。
-- 不擅自改天使邮局的生命周期、AI 调用链或世界状态边界。
-- 不把 Vite chunk 警告当作功能错误处理。
-
-### 需要先确认再做的事项
-
-1. **Sprite Forge 评估后的试点（未安装、未接入）**：
-   - 已调研仓库，实际地址为 `https://github.com/0x0funky/agent-sprite-forge`（owner 首字符为数字 `0`）。
-   - 结论：可作为“生成 → 去背景/对齐 → 拆帧”的辅助生产工具，**不能无缝替代**本项目的伙伴设计、三阶段一致性、营地肖像和 4×4 图集合同。
-   - 如用户明确同意安装，先用一个非生产试点生成单个 idle/walk sheet；然后通过项目适配脚本输出固定 4×4、32/48 atlas、manifest，并运行视觉 QA 与资源校验。不要直接覆盖现有正式资源。
-   - 它需要额外的 Python/Pillow/numpy 环境和本地 skill 安装，属于环境变更，必须先征得用户同意。
-2. 若继续修复远征归来弹窗，先阅读根目录 `HANDOFF_EXPEDITION_REGRESSION.md`。该文件记录过一次“结算后弹窗未出现”的排查上下文；更新日志称该问题曾修复，需先复现确认，不能仅凭旧交接文件再次改动。
-3. 每次 UI 改动都要检查：无浏览器原生 `confirm/prompt/alert`、背包物品有统一 tooltip/确认弹窗、伙伴阶段名与物种名不会重复。
+1. 一句世界观内的简短引言；
+2. `---` 分隔；
+3. 带 emoji 的玩家可感知分区；
+4. 最后用“升级说明”写存档兼容与未发布边界；
+5. 不把内部技术交接、过多构建细节或未完成原型写进开头。
 
 ---
 
-## 7. 建议下一步
+## 7. 下一会话的安全起点
 
-下一次会话应先由用户选择方向；默认建议是**先不改生产资产**，把 Sprite Forge 做成隔离试验，确认输出是否能稳定满足本项目的像素清晰度、方向顺序、基线和角色一致性，再决定是否纳入流程。
+当前没有被授权的下一项代码任务。下一位 Codex 应：
 
-任何新功能都遵循：先读规则 → 说明实施范围 → 小改动 → 自动测试 → Electron 实机烟雾测试 → 更新对应文档。不得因上下文不足而猜测或批量重构。
+1. 先完成第 0 节规定的阅读与状态复述；
+2. 询问 / 等待用户给出具体新需求；
+3. 如果用户仅询问、审查或报告状态，不写代码；
+4. 若用户要求修改，先确认其不触碰冻结伙伴、邮局边界或暂停小镇；
+5. 小改动后执行匹配的测试与构建，并只更新必要文档；
+6. 除非用户要求发布，否则不要碰 GitHub、版本号、Release 或本地未提交的小镇草稿。
+
+---
+
+## 8. 本次交接时的工作树提醒
+
+v0.8.0 已经提交并发布；第 5 节所列小镇 / 提示词草稿仍未跟踪、未提交。
+
+下一会话在进行任何 Git 操作前，必须先检查 `git status --short`，向用户明确区分：
+
+- 已发布的 v0.8.0；
+- 当前需求产生的后续本地修改；
+- 已暂停且不应误提交的小镇草稿。
