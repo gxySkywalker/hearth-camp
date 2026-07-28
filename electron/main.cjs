@@ -447,7 +447,7 @@ function registerHandlers() {
     const cur = isToday && act && act.status !== 'cancelled' ? { id: act.id, content: act.content, activeSeconds: act.active_seconds, status: act.status } : null
     const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
     const sessions = database.all(
-      "SELECT id, content, active_seconds, ended_at, area_id FROM focus_sessions WHERE status = 'completed' AND ended_at >= ? AND ended_at < ? ORDER BY ended_at DESC",
+      "SELECT id, content, active_seconds, ended_at, area_id FROM focus_sessions WHERE status = 'completed' AND active_seconds >= 60 AND ended_at >= ? AND ended_at < ? ORDER BY ended_at DESC",
       [period.periodStart, period.periodEnd],
     ).map(s => ({ id: s.id, title: s.content, activeSeconds: s.active_seconds, endedAt: s.ended_at, returnKind: d.getReturnKind(s.active_seconds), areaName: '', areaColor: '' }))
     const hourly = d.computeDailyHourly(database, period)
