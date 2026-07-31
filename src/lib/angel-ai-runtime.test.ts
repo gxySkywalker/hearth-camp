@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 // @ts-expect-error Electron helper is CommonJS and intentionally shared with tests.
 import angelAi from '../../electron/angel-ai.cjs'
 
-const { buildNarrativeFactEnvelope, generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig } = angelAi
+const { buildNarrativeFactEnvelope, generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig, extractAssistantText } = angelAi
 const prompt = '小天使提示词'
 const letter = {
   id: 'letter-1', letter_type: 'daily', period_key: '2026-07-20', period_start: 1, period_end: 2,
@@ -54,6 +54,14 @@ describe('angel AI runtime', () => {
     const promptText = readFileSync(resolve(process.cwd(), 'electron/prompts/angel-letter.txt'), 'utf8')
     expect(promptText).toContain('daily：120–180 字')
     expect(promptText).toContain('weekly：200–300 字')
+    expect(promptText).toContain('今天你一共踏上了N次出征')
+    expect(promptText).toContain('今天的旅途主要朝着【方向】延伸')
+  })
+
+  it('reads standard and multipart OpenAI-compatible response bodies', () => {
+    expect(extractAssistantText({ choices: [{ message: { content: ' 炉火已收到。 ' } }] })).toBe('炉火已收到。')
+    expect(extractAssistantText({ choices: [{ message: { content: [{ text: '炉火' }, { text: '已收到。' }] } }] })).toBe('炉火已收到。')
+    expect(extractAssistantText({ choices: [{ message: { reasoning_content: 'hidden reasoning' } }] })).toBe('')
   })
 
   it('isolates AI narrative facts from database schema and internal direction fields', () => {
@@ -107,6 +115,18 @@ describe('angel AI runtime', () => {
     expect(buildNarrativeFactEnvelope(richLetter).journey.expeditionStories).toEqual({
       locations: ['雾谷石阶'], moments: ['你们在树下等候短雨。'], companionsMet: ['灯团'], companionsTravelled: ['栗子'], rareFinds: ['月银罗盘'],
     })
+  })
+
+  it('does not turn 栗子 and an old stage alias into two travelling companions', () => {
+    const legacyLetter = {
+      ...letter,
+      fact_json: JSON.stringify({
+        letterType: 'weekly', period: { periodKey: '2026-07-20' }, stats: { sessionCounts: { expedition: 2 } },
+        journey: { completedTasks: [], expeditionStories: { companionsTravelled: ['栗子', '炉尾'] } },
+        observatory: {}, chronicle: {}, worldState: {},
+      }),
+    }
+    expect(buildNarrativeFactEnvelope(legacyLetter).journey.expeditionStories.companionsTravelled).toEqual(['栗子'])
   })
 
   it('keeps postal user text free of the weekly-report label', () => {

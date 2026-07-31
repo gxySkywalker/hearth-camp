@@ -221,6 +221,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
       <CottageScene
         immersive
         playerName={dashboard.settings.user_name || '旅行者'}
+        playerAvatar={world.foundation.player.outfit_id || 'traveler_clothes'}
         companion={companion}
         onAction={handleAction}
         onCompanionInteract={interactWithCompanion}

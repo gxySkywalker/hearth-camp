@@ -9,6 +9,8 @@ import roomDayBackdrop from '../../assets/art/environments/cottage/cottage_room_
 import roomNightBackdrop from '../../assets/art/environments/cottage/cottage_room_night_512_v1.png'
 import hearthFireAtlas from '../../assets/art/environments/cottage/cottage_hearth_fire_4frames_v1.png'
 import playerWalkAtlas from '../../assets/art/characters/player/player_walk_32x48_v1.png'
+import blueTravelerWalkAtlas from '../../assets/art/characters/player/player_adventurer_blue_walk_32x48_v1.png'
+import ochreTravelerWalkAtlas from '../../assets/art/characters/player/player_adventurer_ochre_walk_32x48_v1.png'
 import hearthHoundWalkAtlas from '../../assets/art/characters/companions/hearth_hound_walk_48_v1.png'
 import hearthHoundManeWalkAtlas from '../../assets/art/characters/companions/hearth_hound_stage-1_walk_48_v1.png'
 import hearthHoundEmberTailWalkAtlas from '../../assets/art/characters/companions/hearth_hound_ember_tail_walk_48_v1.png'
@@ -78,6 +80,7 @@ const FOREGROUND_OCCLUSION_SLICES = [
 
 export function PixiCottageScene({
   playerName,
+  playerAvatar = 'traveler_clothes',
   companion = null,
   immersive = false,
   onAction,
@@ -88,6 +91,7 @@ export function PixiCottageScene({
   onInitError,
 }: {
   playerName: string
+  playerAvatar?: string
   companion?: Companion | null
   immersive?: boolean
   onAction?: (action: CottageInteractionAction) => void
@@ -209,10 +213,14 @@ export function PixiCottageScene({
                 : companion?.species_id === 'cloud_rabbit' ? selectedCloudRabbitAtlas
                   : companion?.species_id === 'ember_drake' ? selectedEmberDrakeAtlas : selectedHoundAtlas
         const resolvedCompanionAtlas = companion?.species_id === 'iron_badger' ? selectedIronBadgerAtlas : selectedCompanionAtlas
+        const selectedPlayerAtlas = {
+          traveler_blue: blueTravelerWalkAtlas,
+          traveler_ochre: ochreTravelerWalkAtlas,
+        }[playerAvatar] || playerWalkAtlas
         const [dayBackdropTexture, nightBackdropTexture, playerAtlas, houndAtlas, fireAtlas] = await Promise.all([
           loadTexture(roomDayBackdrop),
           loadTexture(roomNightBackdrop),
-          loadTexture(playerWalkAtlas),
+          loadTexture(selectedPlayerAtlas),
           loadTexture(resolvedCompanionAtlas),
           loadTexture(hearthFireAtlas),
         ])
@@ -346,7 +354,7 @@ export function PixiCottageScene({
         app.destroy({ removeView: true }, { children: true, texture: false, textureSource: false })
       }
     }
-    }, [companion?.species_id, companion?.stage, companion?.evolution_path, onInitError])
+    }, [companion?.species_id, companion?.stage, companion?.evolution_path, playerAvatar, onInitError])
 
   // Swap only the ground illustration and its paired foreground cutouts. The
   // world entities retain their current Pixi instances and coordinates, so

@@ -106,4 +106,14 @@ contextBridge.exposeInMainWorld('growthArc', {
   window: {
     show: () => ipcRenderer.send('window:show'),
   },
+    focusWidget: {
+      getState: () => invoke('focus-widget:get-state'),
+      showMain: () => ipcRenderer.send('focus-widget:show-main'),
+      hide: () => ipcRenderer.send('focus-widget:hide'),
+    onState: (listener) => {
+      const handler = (_event, state) => listener(state)
+      ipcRenderer.on('focus-widget:state', handler)
+      return () => ipcRenderer.removeListener('focus-widget:state', handler)
+    },
+  },
 })

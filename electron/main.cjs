@@ -1,12 +1,13 @@
-const { app, BrowserWindow, ipcMain, Notification, Menu, Tray, nativeImage, safeStorage, shell, powerMonitor } = require('electron')
+const { app, BrowserWindow, ipcMain, Notification, Menu, Tray, nativeImage, safeStorage, shell, powerMonitor, screen } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
 const { ProxyAgent } = require('undici')
 const { StudyDatabase } = require('./database.cjs')
-const { generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig } = require('./angel-ai.cjs')
+const { generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig, extractAssistantText } = require('./angel-ai.cjs')
 
 let mainWindow
+let focusWidgetWindow
 let tray
 let database
 let allowQuit = false
@@ -24,6 +25,83 @@ function showWindow() {
   if (!mainWindow) return
   mainWindow.show()
   mainWindow.focus()
+  if (focusWidgetWindow && !focusWidgetWindow.isDestroyed()) focusWidgetWindow.hide()
+}
+
+function focusWidgetState() {
+  const session = database?.getActiveSession()
+  if (!session) return { active: false }
+  return {
+    active: true,
+    status: session.status,
+    content: session.content || session.task_title || '正在专注',
+    taskTitle: session.task_title || '',
+    companionName: session.companion_name || '',
+    activeSeconds: Math.max(0, Number(session.active_seconds) || 0),
+    plannedSeconds: Math.max(0, Number(session.planned_seconds) || 0),
+  }
+}
+
+function placeFocusWidget() {
+  if (!focusWidgetWindow || focusWidgetWindow.isDestroyed()) return
+  const area = screen.getPrimaryDisplay().workArea
+  const [width, height] = focusWidgetWindow.getSize()
+  focusWidgetWindow.setPosition(Math.round(area.x + (area.width - width) / 2), area.y + 12)
+}
+
+function syncFocusWidget({ show = false } = {}) {
+  if (!focusWidgetWindow || focusWidgetWindow.isDestroyed()) return
+  const state = focusWidgetState()
+  focusWidgetWindow.webContents.send('focus-widget:state', state)
+  if (!state.active) {
+    focusWidgetWindow.hide()
+    return
+  }
+  if (show) {
+    placeFocusWidget()
+    focusWidgetWindow.showInactive()
+    // A normal `floating` window can still sit behind browsers and other
+    // applications that request their own topmost layer. Use the highest
+    // regular Electron/Windows level and bring it forward whenever it is
+    // shown, so this really behaves like a persistent focus companion.
+    focusWidgetWindow.setAlwaysOnTop(true, 'screen-saver')
+    focusWidgetWindow.moveTop()
+  }
+}
+
+function createFocusWidget() {
+  if (focusWidgetWindow && !focusWidgetWindow.isDestroyed()) return
+  focusWidgetWindow = new BrowserWindow({
+    width: 560,
+    height: 94,
+    minWidth: 560,
+    maxWidth: 560,
+    minHeight: 94,
+    maxHeight: 94,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+  // Keep the compact timer above ordinary application windows. (Exclusive
+  // fullscreen software remains under Windows' control.)
+  focusWidgetWindow.setAlwaysOnTop(true, 'screen-saver')
+  focusWidgetWindow.loadFile(path.join(__dirname, 'focus-widget.html'))
+  focusWidgetWindow.on('close', (event) => {
+    if (!allowQuit) {
+      event.preventDefault()
+      focusWidgetWindow.hide()
+    }
+  })
+  focusWidgetWindow.on('closed', () => { focusWidgetWindow = undefined })
 }
 
 function createTray() {
@@ -88,7 +166,11 @@ function createWindow() {
       mainWindow.hide()
       if (Notification.isSupported()) new Notification({ title: `${APP_NAME}仍在运行`, body: '计时器已留在系统托盘。' }).show()
     }
-  })
+    })
+    mainWindow.on('hide', () => syncFocusWidget({ show: true }))
+    // "-" does not emit hide on every Windows configuration. Keep the active
+    // journey in view whether the player hides the camp or minimizes it.
+    mainWindow.on('minimize', () => syncFocusWidget({ show: true }))
 }
 
 function secretPath() {
@@ -120,6 +202,12 @@ function bgmFolderPath() {
   return path.join(app.getPath('userData'), 'audio', 'bgm')
 }
 
+function bundledBgmFolderPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'audio', 'bgm')
+    : path.join(__dirname, '..', 'assets', 'audio', 'bgm')
+}
+
 function ensureBgmFolder() {
   const folder = bgmFolderPath()
   fs.mkdirSync(folder, { recursive: true })
@@ -128,18 +216,21 @@ function ensureBgmFolder() {
 
 function getBgmSources() {
   const folder = ensureBgmFolder()
-  const sourceFor = (filename) => {
-    const file = path.join(folder, filename)
+  const sourceFor = (baseFolder, filename) => {
+    const file = path.join(baseFolder, filename)
     try {
       return fs.statSync(file).isFile() ? pathToFileURL(file).toString() : null
     } catch {
       return null
     }
   }
+  const preferredSourceFor = (filename) => (
+    sourceFor(folder, filename) || sourceFor(bundledBgmFolderPath(), filename)
+  )
   return {
     folder,
-    cottage: sourceFor('cottage.mp3'),
-    expedition: sourceFor('expedition.mp3'),
+    cottage: preferredSourceFor('cottage.mp3'),
+    expedition: preferredSourceFor('expedition.mp3'),
   }
 }
 
@@ -156,7 +247,7 @@ function parseResponseText(response) {
 // ── Angel letter AI narrative ───────────────────────────────
 
 const ANGEL_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts', 'angel-letter.txt'), 'utf-8')
-const ANGEL_PROMPT_VERSION = 4
+const ANGEL_PROMPT_VERSION = 5
 
 async function generateLetterNarrative(letter) {
   return generateAngelNarrative({
@@ -242,21 +333,18 @@ async function generateTestLetter() {
   try { config = resolveAngelAiConfig(settings) } catch (error) { return { success: false, error: error.message } }
   const { provider, model, baseUrl } = config
 
-  const testFact = {
-    letterType: 'daily',
-    fact: { chronicle: { season: '夏' }, journey: { mainDirection: '松风林' } },
-  }
-  const systemPrompt = ANGEL_PROMPT + '\n\n## 测试信笺\n' + JSON.stringify(testFact)
-
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model, max_tokens: 200,
+        // This is a connection check, not a shortened real letter. The old
+        // request contradicted the letter prompt's 120–180-character rule,
+        // which could lead reasoning models to return no visible content.
+        model, max_tokens: 80,
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: '请写一封很短的测试信，20字以内。' },
+          { role: 'system', content: '你是炉火营地的信使连通性测试助手。只回复“炉火已收到”，不要解释。' },
+          { role: 'user', content: '请确认信笺通路。' },
         ],
       }),
       signal: AbortSignal.timeout(15000),
@@ -265,8 +353,10 @@ async function generateTestLetter() {
     if (!response.ok) {
       return { success: false, error: json?.error?.message || `HTTP ${response.status}` }
     }
-    const text = json.choices?.[0]?.message?.content?.trim()
-    return text ? { success: true, text, provider, model } : { success: false, error: '空响应' }
+    const text = extractAssistantText(json)
+    if (text) return { success: true, text, provider, model }
+    const finishReason = String(json?.choices?.[0]?.finish_reason || '').trim()
+    return { success: false, error: finishReason ? `服务未返回可显示正文（${finishReason}）` : '服务未返回可显示正文' }
   } catch (e) {
     return { success: false, error: e?.message || '网络请求失败' }
   }
@@ -392,12 +482,12 @@ function registerHandlers() {
   handle('task:reopen', (id) => database.reopenTask(id))
   handle('task:manual-complete', (id) => database.manualCompleteTask(id))
   handle('session:active', () => database.getActiveSession())
-  handle('session:start', (data) => database.startSession(data))
-  handle('session:heartbeat', (id) => database.heartbeat(id))
-  handle('session:pause', (id) => database.pauseSession(id))
-  handle('session:resume', (id) => database.resumeSession(id))
-  handle('session:stop', ({ id, data }) => database.stopSession(id, data))
-  handle('session:cancel', (id) => database.cancelSession(id))
+  handle('session:start', (data) => { const result = database.startSession(data); syncFocusWidget(); return result })
+  handle('session:heartbeat', (id) => { const result = database.heartbeat(id); syncFocusWidget(); return result })
+  handle('session:pause', (id) => { const result = database.pauseSession(id); syncFocusWidget(); return result })
+  handle('session:resume', (id) => { const result = database.resumeSession(id); syncFocusWidget(); return result })
+  handle('session:stop', ({ id, data }) => { const result = database.stopSession(id, data); syncFocusWidget(); return result })
+  handle('session:cancel', (id) => { const result = database.cancelSession(id); syncFocusWidget(); return result })
   handle('caravan:buy', ({ sessionId, slotIndex }) => database.buyCaravanItem(sessionId, slotIndex))
   handle('bard:claim', (sessionId) => database.claimBardPoem(sessionId))
   handle('bard:list', () => database.getPoetryCollection())
@@ -540,6 +630,11 @@ function registerHandlers() {
     return { ...periodic, events, birthday }
   })
   ipcMain.on('window:show', showWindow)
+  handle('focus-widget:get-state', () => focusWidgetState())
+  ipcMain.on('focus-widget:show-main', showWindow)
+  ipcMain.on('focus-widget:hide', () => {
+    if (focusWidgetWindow && !focusWidgetWindow.isDestroyed()) focusWidgetWindow.hide()
+  })
 }
 
 app.setAppUserModelId(APP_ID)
@@ -550,6 +645,7 @@ app.whenReady().then(async () => {
   try { database.ensureWelcomeLetter() } catch (_) { /* non-critical */ }
   try { database.ensurePeriodicLetters(); database.ensureEventLetters(); database.ensureBirthdayLetter() } catch (_) { /* non-critical on startup */ }
   createWindow()
+  createFocusWidget()
   // AI narratives run in background — never block the game
   ensureAiNarratives().catch(() => {})
   createTray()

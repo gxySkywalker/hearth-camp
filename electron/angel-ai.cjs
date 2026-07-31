@@ -20,11 +20,17 @@ function narrativeNames(items) {
 
 function narrativeStories(journey) {
   const stories = journey?.expeditionStories || {}
+  const travelled = narrativeNames(stories.companionsTravelled)
+  // 早期冻结事实可能同时留下“栗子”和默认成长阶段旧名；它们不是两位伙伴。
+  const formerHearthHoundNames = new Set(['炉尾', '栗鬃', '炭尾', '松影', '月爪'])
+  const companionsTravelled = travelled.includes('栗子')
+    ? travelled.filter((name) => !formerHearthHoundNames.has(name))
+    : travelled
   return {
     locations: narrativeNames(stories.locations),
     moments: narrativeNames(stories.moments),
     companionsMet: narrativeNames(stories.companionsMet),
-    companionsTravelled: narrativeNames(stories.companionsTravelled),
+    companionsTravelled,
     rareFinds: narrativeNames(stories.rareFinds),
   }
 }
@@ -101,6 +107,22 @@ function resolveAngelAiConfig(settings = {}) {
   return { provider, model, baseUrl: baseUrl.replace(/\/$/, '') }
 }
 
+function extractAssistantText(payload) {
+  const choice = payload?.choices?.[0]
+  const content = choice?.message?.content ?? choice?.text
+  if (typeof content === 'string') return content.trim()
+  // A few OpenAI-compatible gateways return a list of text parts instead of
+  // one string. Accept that shape without ever treating hidden reasoning as
+  // the letter body.
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => typeof part === 'string' ? part : String(part?.text || ''))
+      .join('')
+      .trim()
+  }
+  return ''
+}
+
 async function generateAngelNarrative({ letter, apiKey, settings = {}, prompt, fetchImpl = fetch, timeoutMs = 30000 }) {
   if (!apiKey) return { success: false, status: 'skipped' }
   let fact
@@ -116,9 +138,9 @@ async function generateAngelNarrative({ letter, apiKey, settings = {}, prompt, f
     })
     const json = await response.json().catch(() => ({}))
     if (!response.ok) return response.status === 429 ? { success: false, status: 'quota_exceeded' } : { success: false, status: 'failed', error: json?.error?.message || `HTTP ${response.status}` }
-    const text = json.choices?.[0]?.message?.content?.trim()
+    const text = extractAssistantText(json)
     return text ? { success: true, status: 'success', text, provider, model, fact } : { success: false, status: 'failed', error: 'empty response' }
   } catch (error) { return { success: false, status: 'failed', error: error?.message || 'request failed' } }
 }
 
-module.exports = { buildNarrativeFactEnvelope, generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig }
+module.exports = { buildNarrativeFactEnvelope, generateAngelNarrative, isAngelNarrativeEligible, shouldUseAiBody, resolveAngelAiConfig, extractAssistantText }

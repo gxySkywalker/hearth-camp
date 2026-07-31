@@ -14,7 +14,6 @@ backups/
 secret.bin
 .env
 .env.*
-assets/audio/bgm/*.mp3
 assets/audio/bgm/*.wav
 assets/audio/bgm/*.ogg
 assets/audio/sfx/*.mp3

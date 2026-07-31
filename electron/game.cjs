@@ -4,6 +4,7 @@ const COMPANION_SPECIES = [
   {
     id: 'hearth_hound',
     name: '炉尾',
+    defaultNickname: '栗子',
     kind: '边境同行犬',
     rarity: 'starter',
     palette: 'honey',

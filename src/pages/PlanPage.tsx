@@ -262,6 +262,7 @@ export function PlanPage() {
                   {isTodayTask && <span className="planner-task-today">⚑ 今日路标</span>}
                 </div>
                 <span className="planner-task-meta">{taskMetaText(task, isActive, isDone)}</span>
+                {task.notes.trim() && <p className="planner-task-note" title={task.notes}>{task.notes}</p>}
               </div>
               <div className="planner-task-actions">
                 {isActive && <button className={isTodayTask ? 'task-play' : 'task-play-secondary'} onClick={() => startFocus(task.id)}><Icon name="play" size={15} />出发</button>}

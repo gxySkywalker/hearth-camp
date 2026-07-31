@@ -12,6 +12,7 @@ export type CottageAction = CottageInteractionAction
  */
 export function CottageScene({
   playerName,
+  playerAvatar = 'traveler_clothes',
   companion = null,
   immersive = false,
   onAction,
@@ -21,6 +22,7 @@ export function CottageScene({
   hearthAvailable = false,
 }: {
   playerName: string
+  playerAvatar?: string
   companion?: Companion | null
   immersive?: boolean
   onAction?: (action: CottageAction) => void
@@ -31,6 +33,7 @@ export function CottageScene({
 }) {
   return <PixiCottageScene
     playerName={playerName}
+    playerAvatar={playerAvatar}
     companion={companion}
     immersive={immersive}
     onAction={onAction}

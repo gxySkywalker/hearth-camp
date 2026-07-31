@@ -639,7 +639,14 @@ function buildExpeditionStories(db, start, end, limit = 8) {
     let rewards = {}
     try { rewards = JSON.parse(row.rewards_json || '{}') } catch {}
     if (rewards.newCompanion?.nickname) companionsMet.push(String(rewards.newCompanion.nickname))
-    if (rewards.activeCompanion?.nickname) companionsTravelled.push(String(rewards.activeCompanion.nickname))
+    if (rewards.activeCompanion?.id) {
+      // 结算快照保存的是当时的名字；默认名后来修复时，不能让同一位
+      // 伙伴在一封新信里同时以旧名和当前名出现。
+      const current = db.one('SELECT nickname FROM companions WHERE id = ?', [rewards.activeCompanion.id])
+      companionsTravelled.push(String(current?.nickname || rewards.activeCompanion.nickname || '').trim())
+    } else if (rewards.activeCompanion?.nickname) {
+      companionsTravelled.push(String(rewards.activeCompanion.nickname))
+    }
     for (const drop of rewards.drops || []) {
       if (['rare', 'precious'].includes(drop?.item?.rarity)) rareFinds.push(String(drop.item.name || ''))
     }

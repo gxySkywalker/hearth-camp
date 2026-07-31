@@ -152,6 +152,11 @@ function isDefaultCompanionNickname(row) {
 }
 
 function automaticGrowthNickname(row, stage, evolutionPath) {
+  // 栗子是初始同行犬始终沿用的默认称呼；炉尾、栗鬃等是物种的
+  // 成长章节，不应在任何羁绊阶段覆盖玩家眼中陪伴自己的名字。
+  if (row.species_id === 'hearth_hound' && isDefaultCompanionNickname(row)) {
+    return '栗子'
+  }
   return isDefaultCompanionNickname(row)
     ? stageNameForCompanion(row.species_id, stage, evolutionPath)
     : row.nickname
@@ -473,6 +478,26 @@ class StudyDatabase {
       }
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '20')")
     }
+    if (version < 21) {
+      // V21: 栗子是初始同行犬的固定默认称呼。保留所有自定义名字，
+      // 只修复曾被自动成长逻辑换成炉尾／栗鬃等阶段名的默认昵称。
+      this.run("UPDATE companions SET nickname = '栗子' WHERE species_id = 'hearth_hound' AND nickname_is_custom = 0", [], false)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '21')")
+    }
+    if (version < 22) {
+      // “学习者”与早期英文名只是旧版占位称呼。只迁移这些明确的
+      // 默认值，绝不覆盖玩家自行填写的旅人名字。
+      const placeholderNames = ['学习者', 'Traveler']
+      const currentName = String(this.getSettings().user_name || '').trim()
+      if (!currentName || placeholderNames.includes(currentName)) {
+        this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('user_name', '冒险者')", [], false)
+      }
+      const profile = this.one("SELECT display_name FROM player_profiles WHERE id = 'primary'")
+      if (profile && (!String(profile.display_name || '').trim() || placeholderNames.includes(String(profile.display_name).trim()))) {
+        this.run("UPDATE player_profiles SET display_name = '冒险者', updated_at = ? WHERE id = 'primary'", [Date.now()], false)
+      }
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '22')")
+    }
   }
 
   migrate() {
@@ -771,7 +796,7 @@ class StudyDatabase {
       this.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ['system_default_area_id', defaultAreaId], false)
     }
     const defaults = {
-      user_name: '学习者',
+      user_name: '冒险者',
       model: 'gpt-5.6-luna',
       theme: 'hearth',
       accent: '#c9783d',
@@ -809,7 +834,7 @@ class StudyDatabase {
     if (!this.one('SELECT id FROM player_profiles WHERE id = \'primary\'')) {
       const legacy = this.hadExistingDatabase ? 1 : 0
       this.run('INSERT INTO player_profiles (id, display_name, intro_status, created_from_legacy, created_at, updated_at) VALUES (\'primary\', ?, ?, ?, ?, ?)', [
-        String(settings.user_name || 'Traveler').trim() || 'Traveler',
+        String(settings.user_name || '冒险者').trim() || '冒险者',
         legacy ? 'available' : 'unseen', legacy, now, now,
       ], false)
     }

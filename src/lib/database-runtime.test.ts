@@ -157,6 +157,16 @@ describe('expedition loot effects', () => {
   })
 })
 
+describe('traveller identity defaults', () => {
+  it('starts a new journey as 冒险者, not the former 学习者 placeholder', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-adventurer-default-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    expect(database.getSettings().user_name).toBe('冒险者')
+    expect(database.getWorldFoundation().player.display_name).toBe('冒险者')
+  })
+})
+
 describe('AI configuration persistence', () => {
   it('persists the canonical AI base URL and provider settings', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'growth-arc-ai-settings-'))
@@ -210,7 +220,7 @@ describe('companion identity', () => {
       stage: 1,
     })
     expect(result.expedition.growthEvent.companion.stageName).toBe('栗鬃')
-    expect(result.expedition.growthEvent.companion.nickname).toBe('栗鬃')
+    expect(result.expedition.growthEvent.companion.nickname).toBe('栗子')
     const pending = database.getPendingGrowthEvent()
     expect(pending?.id).toBe(result.expedition.growthEvent.id)
     database.markGrowthEventSeen(pending.id)

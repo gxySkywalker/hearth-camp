@@ -216,7 +216,7 @@ export function GrowthPage() {
       </article>
       <article className="parchment-card backpack-card">
         <header><div><span className="card-sigil">▣</span><div><small>共同背包</small><h2>带回小屋的东西</h2></div></div><span className="soft-count">{inventory.reduce((sum, entry) => sum + Number(entry.quantity), 0)} 件</span></header>
-        <div>{inventory.slice(0, 8).map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回来���东西会被好好收在这里。</p>}</div>
+        <div>{inventory.slice(0, 8).map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回的物品会好好收在这里。</p>}</div>
       </article>
     </section>
 
