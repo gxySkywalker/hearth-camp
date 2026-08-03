@@ -6,14 +6,17 @@ export const UI_MAIL_OPEN_VOLUME = 0.3
 type LoopSound = 'hearth' | 'footstepWood' | 'footstepRug'
 
 const LOOP_SOUNDS: Record<LoopSound, { src: string; volume: number }> = {
-  hearth: { src: '/audio/fire.wav', volume: 0.12 },
-  footstepWood: { src: '/audio/footstep-wood.wav', volume: 0.11 },
-  footstepRug: { src: '/audio/footstep-rug.wav', volume: 0.09 },
+  // Public assets must stay relative to index.html. A leading slash works in
+  // Vite's development server but resolves to file:///audio/... in packaged
+  // Electron, where the files cannot be found.
+  hearth: { src: 'audio/fire.wav', volume: 0.12 },
+  footstepWood: { src: 'audio/footstep-wood.wav', volume: 0.11 },
+  footstepRug: { src: 'audio/footstep-rug.wav', volume: 0.09 },
 }
 
 const ONE_SHOT_SOUNDS = {
-  reward: { src: '/audio/reward.wav', volume: 0.34 },
-  levelUp: { src: '/audio/level-up.wav', volume: 0.38 },
+  reward: { src: 'audio/reward.wav', volume: 0.34 },
+  levelUp: { src: 'audio/level-up.wav', volume: 0.38 },
 } as const
 
 export type BgmTrack = 'cottage' | 'expedition'
