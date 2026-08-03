@@ -7,11 +7,12 @@ import { getItemLore } from '../lib/item-lore'
 interface ItemTooltipProps {
   item: LootItem
   quantity?: number
+  exchangePrice?: number
   triggerRef: React.RefObject<HTMLElement | null>
   visible: boolean
 }
 
-export function ItemTooltip({ item, quantity, triggerRef, visible }: ItemTooltipProps) {
+export function ItemTooltip({ item, quantity, exchangePrice, triggerRef, visible }: ItemTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
 
@@ -58,6 +59,7 @@ export function ItemTooltip({ item, quantity, triggerRef, visible }: ItemTooltip
         {lore.consumesItem && <span className="item-tooltip-consume">使用后消耗</span>}
       </div>}
       {lore.collectible && <p className="item-tooltip-pending">当前仅可收藏，后续功能开放后不会失去它</p>}
+      {exchangePrice !== undefined && <div className="item-tooltip-foot">商队交换价 <strong>{exchangePrice}</strong> 枚旧王朝铜币</div>}
       {quantity !== undefined && <div className="item-tooltip-foot">
         当前持有 <strong>{quantity}</strong> 件
       </div>}

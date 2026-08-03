@@ -81,7 +81,11 @@ function isAngelNarrativeEligible(letter) {
 }
 
 function shouldUseAiBody(letter) {
-  return Number(letter?.is_read) !== 1
+  // A read template must never hide a later successful polish. Connection
+  // checks frequently complete after the player has opened a new letter.
+  // Keep the helper permissive for legacy callers that only pass read state;
+  // the real worker has already filtered the letter type before it gets here.
+  return !letter?.letter_type || isAngelNarrativeEligible(letter)
 }
 
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash'

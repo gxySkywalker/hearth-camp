@@ -19,8 +19,8 @@ const COMPANION_SPECIES = [
   },
   {
     id: 'ember_drake',
-    name: '余烬古龙',
-    kind: '余烬古龙',
+    name: '古龙',
+    kind: '古龙',
     defaultNickname: '小火牙',
     rarity: 'rare',
     palette: 'ember',
@@ -248,12 +248,18 @@ function rollCaravanEncounter({ sessionId, activeSeconds, startedAt }) {
   return { chance: tier.caravanChance, greeting: '暮色里的车轮在路边停下。商队掌灯人掀开篷布，请你看看他们从远方带来的旅途遗存。', items: stock.map((entry) => ({ item: entry.item, price: entry.price, sold: false })) }
 }
 
-function rollBardEncounter({ sessionId, activeSeconds, caravan }) {
-  if (!caravan) return null
+function rollBardEncounter({ sessionId, activeSeconds }) {
   const tier = durationTier(activeSeconds)
   const chance = ({ scout: .05, short: .10, standard: .20, ruins: .30, deep: .40, epic: .50 })[tier.id] || 0
   const random = seededRandom(`${sessionId}:bard`)
-  return random() < chance ? { chance, greeting: '披着旧斗篷的吟游诗人在车辕旁停下，向你轻轻欠身。' } : null
+  if (random() >= chance) return null
+  const common = LOOT.filter((item) => item.rarity === 'common')
+  const gift = common[Math.floor(random() * common.length)] || null
+  return {
+    chance,
+    greeting: '披着旧斗篷的吟游诗人在路旁停下，向你轻轻欠身。',
+    gift,
+  }
 }
 
 function rollExpedition({ sessionId, activeSeconds, rarePity = 0, companionPity = 0, ownedSpeciesIds = [], rareBoost = false, nightRareBoost = false, companionBoost = false, locations = LOCATIONS }) {

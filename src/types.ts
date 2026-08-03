@@ -264,7 +264,7 @@ export interface ExpeditionResult {
     greeting: string
     items: Array<{ item: LootItem; price: number; sold: boolean }>
   } | null
-  bard?: { chance: number; greeting: string } | null
+  bard?: { chance: number; greeting: string; gift?: LootItem | null } | null
   knowledgeRelic: KnowledgeRelic | null
   returnKind?: 'brief' | 'short' | 'expedition' | 'deep'
   createdAt?: number

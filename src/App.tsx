@@ -2,7 +2,7 @@ import { useState, useEffect, useReducer, useRef, useCallback } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { FocusController } from './components/FocusController'
 import { Icon } from './components/Icon'
-import { bgm, playUISound, BGM_DEFAULT_VOLUME } from './lib/audio'
+import { bgm, playUISound, BGM_DEFAULT_VOLUME, resumeWorldSoundsAfterUserGesture } from './lib/audio'
 import { navReducer, initialNavState, SIDEBAR_COUNT, type NavState } from './lib/navState'
 import { canHandle, setInputContext, getInputContext } from './lib/inputContext'
 import { HomePage } from './pages/HomePage'
@@ -290,13 +290,24 @@ function AppShell() {
   }, [page])
 
   useEffect(() => {
-    // BGM is intentionally supplied by the player as a local music pack.
-    // Keep the app quiet when no files have been installed.
+    // Bundled music is the fallback; a matching local BGM pack takes priority.
     window.growthArc.settings.getBgmSources()
       .then(({ cottage, expedition }) => bgm.setSources({ cottage, expedition }))
       .catch(() => bgm.setSources({ cottage: null, expedition: null }))
     bgm.play('cottage')
-    return () => bgm.stop()
+    // Some Chromium builds require a user gesture before allowing audio.
+    // A one-time retry makes initial music reliable without bothering players.
+    const resumeMusic = () => {
+      bgm.resumeAfterUserGesture()
+      resumeWorldSoundsAfterUserGesture()
+    }
+    window.addEventListener('pointerdown', resumeMusic, { once: true, capture: true })
+    window.addEventListener('keydown', resumeMusic, { once: true, capture: true })
+    return () => {
+      window.removeEventListener('pointerdown', resumeMusic, { capture: true })
+      window.removeEventListener('keydown', resumeMusic, { capture: true })
+      bgm.stop()
+    }
   }, [])
 
   if (loading) return <div className="app-loading"><div className="loading-fire">◆</div><strong>正在点亮壁炉</strong><span>伙伴们在整理昨夜的行囊…</span></div>

@@ -12,7 +12,7 @@ const LORE: Record<string, ItemLore> = {
   map_scrap:         { effectLabel: '集齐 10 张后，可拼合一处新的远征地点', consumesItem: true, xpAwarded: null },
   herb_bundle:       { effectLabel: '炉火燃着时，10 束可熬制 1 份山草药汤', consumesItem: false, xpAwarded: null, collectible: true },
   herbal_soup:       { effectLabel: '给正在休养的伙伴饮用：康复并羁绊 +5', consumesItem: true, xpAwarded: null },
-  berry_bread:       { effectLabel: '当前同行伙伴羁绊 +1', consumesItem: true, xpAwarded: null },
+  berry_bread:       { effectLabel: '交给伙伴：羁绊 +1', consumesItem: true, xpAwarded: null },
   river_stone:       { effectLabel: '涟牙及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
   wind_hill_feather: { effectLabel: '暮羽子及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
   flame_scatter:     { effectLabel: '炉尾及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },

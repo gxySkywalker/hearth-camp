@@ -22,13 +22,13 @@ describe('expedition loot effects', () => {
     database.run('INSERT INTO inventory (item_id, quantity, first_found_at, updated_at) VALUES (?, ?, ?, ?)', [itemId, quantity, now, now])
   }
 
-  it('uses bread for exactly one bond with the active companion', async () => {
+  it('shares bread with the selected healthy cottage companion for exactly one bond', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'growth-arc-bread-bond-'))
     tempDirs.push(dir)
     const database = await new StudyDatabase(dir).init()
     const companion = database.getCompanionCollection().active
     addInventory(database, 'berry_bread')
-    database.useItem('berry_bread')
+    database.useItem('berry_bread', companion.id)
     expect(database.getCompanion(companion.id).bond_xp).toBe(Number(companion.bond_xp) + 1)
   })
 

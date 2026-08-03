@@ -5,9 +5,84 @@ export const COTTAGE_PLAYER_HEIGHT = 72
 export const COTTAGE_COMPANION_POSITION: CottagePosition = { x: 306, y: 164 }
 export const COTTAGE_PLAYER_START_POSITION: CottagePosition = { x: 240, y: 144 }
 
+// Every healthy companion has a quiet, species-appropriate place in the
+// cottage. These are resting places, not gameplay stations: the one marked
+// for the next expedition remains the only companion who follows the player.
+export const COTTAGE_RESIDENT_POSITIONS: Record<string, CottagePosition> = {
+  hearth_hound: { x: 132, y: 166 },
+  moss_fox: { x: 176, y: 190 },
+  glimmer_cat: { x: 286, y: 178 },
+  river_otter: { x: 354, y: 177 },
+  iron_badger: { x: 404, y: 178 },
+  moon_owl: { x: 292, y: 38 },
+  cloud_rabbit: { x: 154, y: 206 },
+  ember_drake: { x: 238, y: 174 },
+}
+
+export function getCottageResidentPosition(speciesId: string) {
+  return { ...(COTTAGE_RESIDENT_POSITIONS[speciesId] || COTTAGE_COMPANION_POSITION) }
+}
+
+/**
+ * Small, safe circuits for a companion that is enjoying the cottage on its
+ * own.  They deliberately remain inside each creature's familiar corner;
+ * evolution widens that circuit a little, rather than turning a companion
+ * into a generic wandering NPC.
+ */
+export function getCottageWanderPoints(companion: { species_id: string; stage?: number; evolution_path?: string }) {
+  const stage = Number(companion.stage || 0)
+  const home = getCottageResidentPosition(companion.species_id)
+  const paths: Record<string, CottagePosition[]> = {
+    hearth_hound: [{ x: 112, y: 170 }, { x: 140, y: 184 }, { x: 166, y: 171 }],
+    moss_fox: [{ x: 154, y: 190 }, { x: 182, y: 202 }, { x: 206, y: 184 }],
+    glimmer_cat: [{ x: 264, y: 181 }, { x: 294, y: 166 }, { x: 314, y: 186 }],
+    river_otter: [{ x: 326, y: 184 }, { x: 356, y: 196 }, { x: 378, y: 179 }],
+    iron_badger: [{ x: 376, y: 188 }, { x: 404, y: 199 }, { x: 420, y: 179 }],
+    moon_owl: [{ x: 264, y: 47 }, { x: 294, y: 38 }, { x: 318, y: 60 }],
+    cloud_rabbit: [{ x: 132, y: 208 }, { x: 160, y: 216 }, { x: 188, y: 202 }],
+    ember_drake: [{ x: 218, y: 180 }, { x: 245, y: 166 }, { x: 270, y: 185 }],
+  }
+  const circuit = paths[companion.species_id] || [home]
+  if (stage < 1) return [home, ...circuit]
+  // Grown partners range a little farther while preserving their familiar
+  // habits: the owl keeps to the high shelves, while the drake circles the
+  // warm centre of the room.
+  const evolved: Record<string, CottagePosition> = {
+    hearth_hound: { x: 102, y: 156 }, moss_fox: { x: 210, y: 164 }, glimmer_cat: { x: 306, y: 146 },
+    river_otter: { x: 314, y: 160 }, iron_badger: { x: 366, y: 171 }, moon_owl: { x: 332, y: 42 },
+    cloud_rabbit: { x: 198, y: 184 }, ember_drake: { x: 278, y: 168 },
+  }
+  // Final forms retain the same small circuit but gain one expression of the
+  // life they have grown into.  These are positional flavour only; no growth
+  // rule or companion identity is changed here.
+  const finalHabit: Record<string, CottagePosition> = {
+    hearth_hound_ember_tail: { x: 94, y: 173 },
+    hearth_hound_pine_shadow: { x: 182, y: 160 },
+    hearth_hound_moon_paw: { x: 124, y: 142 },
+    moss_fox_forest_crown: { x: 220, y: 155 },
+    glimmer_cat_night_glass: { x: 320, y: 138 },
+    river_otter_bay_current: { x: 304, y: 171 },
+    iron_badger_armor_king: { x: 356, y: 162 },
+    moon_owl_dusk_owl: { x: 338, y: 34 },
+    cloud_rabbit_wind_tuft_rabbit: { x: 204, y: 176 },
+    ember_drake_ember_drake: { x: 282, y: 154 },
+  }
+  const habitKey = `${companion.species_id}_${companion.evolution_path || ''}`
+  return [home, ...circuit, ...(evolved[companion.species_id] ? [evolved[companion.species_id]] : []), ...(stage >= 2 && finalHabit[habitKey] ? [finalHabit[habitKey]] : [])]
+}
+
+/** The large central rug and the small doormat use their own soft footstep. */
+export function getCottageFloorSoundSurface(position: CottagePosition): 'wood' | 'rug' {
+  const footX = position.x + COTTAGE_PLAYER_WIDTH / 2
+  const footY = position.y + COTTAGE_PLAYER_HEIGHT - 3
+  const onCentralRug = footX >= 166 && footX <= 346 && footY >= 147 && footY <= 231
+  const onDoorMat = footX >= 211 && footX <= 301 && footY >= 254 && footY <= 283
+  return onCentralRug || onDoorMat ? 'rug' : 'wood'
+}
+
 export type CottagePosition = { x: number; y: number }
 export type CottageDirection = 'north' | 'south' | 'east' | 'west'
-export type CottageCompanionMode = 'follow' | 'stay'
+export type CottageCompanionMode = 'follow' | 'stay' | 'wander'
 export type CottageInteractionAction = 'expedition' | 'journal' | 'poetry' | 'inventory' | 'review' | 'map' | 'hearth'
 export type CottageInteraction = {
   action: CottageInteractionAction
@@ -107,6 +182,24 @@ function canPlaceCompanion(position: CottagePosition) {
   return blocked ? null : clamped
 }
 
+/** One small cardinal step for a freely roaming cottage companion. */
+export function resolveCottageWanderMove(position: CottagePosition, direction: CottageDirection) {
+  const delta = direction === 'north' ? { x: 0, y: -4 }
+    : direction === 'south' ? { x: 0, y: 4 }
+      : direction === 'west' ? { x: -4, y: 0 } : { x: 4, y: 0 }
+  // Free-roaming companions use only the open floor, not the broad movement
+  // envelope used by a following companion. This keeps their larger sprites
+  // out of wallpaper, window alcoves, counters and the chest edge.
+  const candidate = { x: position.x + delta.x, y: position.y + delta.y }
+  // Moon owls begin on the high beam. Keep that one aerial lane constrained
+  // too, rather than dropping a perched owl through the furniture.
+  const highPerch = position.y < 100
+  if (highPerch
+    ? candidate.x < 236 || candidate.x > 348 || candidate.y < 32 || candidate.y > 68
+    : candidate.x < 84 || candidate.x > 404 || candidate.y < 128 || candidate.y > 204) return position
+  return canPlaceCompanion(candidate) || position
+}
+
 export function areCottageEntitiesCrowded(player: CottagePosition, companion: CottagePosition) {
   const playerBody = { left: player.x + COTTAGE_PLAYER_WIDTH * .25, right: player.x + COTTAGE_PLAYER_WIDTH * .75 }
   const companionBody = { left: companion.x + 5, right: companion.x + 27 }
@@ -115,6 +208,47 @@ export function areCottageEntitiesCrowded(player: CottagePosition, companion: Co
   return playerBody.left < companionBody.right
     && playerBody.right > companionBody.left
     && Math.abs(playerFootY - companionFootY) <= 20
+}
+
+/** The smaller body bounds used when two companions must share the room. */
+export function areCottageCompanionsCrowded(first: CottagePosition, second: CottagePosition) {
+  const horizontal = first.x + 5 < second.x + 27 && first.x + 27 > second.x + 5
+  return horizontal && Math.abs((first.y + 29) - (second.y + 29)) <= 20
+}
+
+/**
+ * Find a legal, unoccupied spot close to a companion's intended place.
+ * This is used when the cottage is entered or its sprites are rebuilt so a
+ * stale remembered coordinate can never lock the traveller and a friend into
+ * the same collision body.
+ */
+export function findOpenCottageCompanionPosition(
+  preferred: CottagePosition,
+  player: CottagePosition,
+  occupied: CottagePosition[],
+) {
+  const nearbyOffsets = [
+    { x: 0, y: 0 }, { x: 32, y: 0 }, { x: -32, y: 0 }, { x: 0, y: 28 }, { x: 0, y: -28 },
+    { x: 32, y: 28 }, { x: -32, y: 28 }, { x: 32, y: -28 }, { x: -32, y: -28 },
+    { x: 64, y: 0 }, { x: -64, y: 0 }, { x: 0, y: 56 }, { x: 0, y: -56 },
+  ]
+  const roomGrid = Array.from({ length: 4 }, (_, row) => Array.from({ length: 10 }, (_, column) => ({
+    x: 96 + column * 32,
+    y: 132 + row * 24,
+  }))).flat()
+  const candidates = [
+    ...nearbyOffsets.map((offset) => ({ x: preferred.x + offset.x, y: preferred.y + offset.y })),
+    ...roomGrid,
+  ]
+  for (const candidate of candidates) {
+    const legal = canPlaceCompanion(candidate)
+    if (!legal || areCottageEntitiesCrowded(player, legal)) continue
+    if (occupied.some((other) => areCottageCompanionsCrowded(other, legal))) continue
+    return legal
+  }
+  // A legal preferred spot is always better than an overlap. This final
+  // fallback is only defensive for malformed room data.
+  return canPlaceCompanion(preferred) || { ...COTTAGE_COMPANION_POSITION }
 }
 
 function nudge(value: number, target: number, amount = STEP) {
@@ -128,7 +262,7 @@ export function advanceCottageCompanion(
   direction: CottageDirection,
   mode: CottageCompanionMode,
 ) {
-  if (mode === 'stay') return companion
+  if (mode !== 'follow') return companion
   const vector = direction === 'north' ? { x: 0, y: -1 }
     : direction === 'south' ? { x: 0, y: 1 }
       : direction === 'west' ? { x: -1, y: 0 } : { x: 1, y: 0 }

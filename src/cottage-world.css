@@ -106,6 +106,16 @@
 .cottage-dialogue-controls button { min-height: 25px; padding: 4px 7px; color: #d8c09e; background: #372218; border: 1px solid #8b613f; font: inherit; font-size: 9px; cursor: pointer; }
 .cottage-dialogue-controls button:hover { color: #fff0d1; background: #4c2f20; }
 .cottage-dialogue-controls button.is-selected { color: #fff4d8; background: #704025; border-color: #e9b66f; box-shadow: inset 0 0 0 1px #9a6234, 0 0 0 1px rgba(38, 21, 13, .7); }
+.cottage-gift-backpack-modal { width: min(520px, calc(100vw - 36px)); }
+.cottage-gift-backpack-head { display:grid; grid-template-columns:38px 1fr; gap:9px; align-items:center; padding:12px 14px; color:#583820; background:#ead5aa; border-bottom:2px solid #c99d66; }
+.cottage-gift-backpack-head > span { display:grid; place-items:center; width:32px; height:32px; color:#a75e31; background:#e4bc80; border:1px solid #aa7547; }
+.cottage-gift-backpack-head small { display:block; color:#9b6538; font-size:9px; }.cottage-gift-backpack-head strong { display:block; margin-top:3px; font-size:11px; }
+.cottage-gift-backpack-grid { display:grid; gap:7px; max-height:46vh; overflow:auto; padding:10px; background:#f4e6ca; }
+.cottage-gift-item { width:100%; display:grid; grid-template-columns:34px 1fr auto; gap:8px; align-items:start; padding:9px; text-align:left; color:#573821; background:#fff5e2; border:2px solid #c79b65; box-shadow:inset 0 0 0 2px #f9e9c9; font:inherit; cursor:pointer; }
+.cottage-gift-item:hover,.cottage-gift-item:focus { background:#fffaf0; border-color:#ad6333; outline:none; }.cottage-gift-item:disabled { opacity:.6; cursor:wait; }
+.cottage-gift-item > span { display:grid; place-items:center; width:29px; height:29px; color:#a75d31; background:#e4bd83; border:1px solid #aa7548; }.cottage-gift-item.rare > span,.cottage-gift-item.precious > span { color:#d58b35; }
+.cottage-gift-item small { color:#a36b3c; font-size:9px; }.cottage-gift-item strong { display:block; font-size:12px; }.cottage-gift-item p { margin:3px 0 0; color:#806047; font-size:9px; line-height:1.45; }.cottage-gift-item em { display:block; margin-top:4px; color:#b65e31; font-size:9px; font-style:normal; }.cottage-gift-item b { color:#9a542f; font-size:11px; }
+.cottage-gift-result { margin:0; padding:9px 13px; color:#774225; background:#fff0cb; border-top:1px solid #d5aa72; font-size:11px; line-height:1.5; }
 
 .hearth-modal .modal-body { padding: 0; }
 .hearth-panel { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 16px; color: #ecd8b6; background: #38241a; border: 3px solid #825537; box-shadow: inset 0 0 0 2px #22140e; }

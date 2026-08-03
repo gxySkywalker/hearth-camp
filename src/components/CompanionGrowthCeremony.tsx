@@ -1,33 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Companion, CompanionGrowthEvent } from '../types'
 import { PixelCompanion } from './PixelCompanion'
+import { playLevelUpSound } from '../lib/audio'
 import '../companion-growth-ceremony.css'
 
 type CeremonyPhase = 'notice' | 'shift' | 'reveal' | 'complete'
-
-function playGrowthChime() {
-  try {
-    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AudioContextCtor) return
-    const context = new AudioContextCtor()
-    ;[523.25, 659.25, 783.99].forEach((frequency, index) => {
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-      const start = context.currentTime + index * 0.14
-      oscillator.type = 'sine'
-      oscillator.frequency.value = frequency
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.045, start + 0.03)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.48)
-      oscillator.connect(gain).connect(context.destination)
-      oscillator.start(start)
-      oscillator.stop(start + 0.5)
-    })
-    window.setTimeout(() => void context.close(), 1200)
-  } catch {
-    // The ceremony remains fully usable when audio playback is unavailable.
-  }
-}
 
 const stageName = (companion: Companion, stage: number) => companion.species.stages[stage] || companion.stageName
 
@@ -45,7 +22,7 @@ export function CompanionGrowthCeremony({ event, onComplete }: { event: Companio
   const isNightLightCat = event.companion.species_id === 'glimmer_cat'
 
   useEffect(() => {
-    playGrowthChime()
+    playLevelUpSound()
     const shift = window.setTimeout(() => setPhase('shift'), 1300)
     const reveal = window.setTimeout(() => setPhase('reveal'), 4200)
     const complete = window.setTimeout(() => setPhase('complete'), 5700)

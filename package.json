@@ -1,6 +1,6 @@
 {
   "name": "growth-arc",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "炉火营地：本地优先的像素陪伴与远征记录",
   "main": "electron/main.cjs",
@@ -53,7 +53,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/branding/app-icon.png"
+      "icon": "assets/branding/app-icon.png",
+      "artifactName": "Hearth-Camp-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

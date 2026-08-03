@@ -1,20 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PageId } from '../types'
+import type { Companion, PageId } from '../types'
 import { useApp } from '../context/AppContext'
 import { formatDuration } from '../lib/format'
 import { CottageScene, type CottageAction } from '../components/CottageScene'
 import { Icon } from '../components/Icon'
 import { startFocus } from '../components/FocusController'
 import { setInputContext } from '../lib/inputContext'
-import { playUISound } from '../lib/audio'
+import { playUISound, setHearthFireSound } from '../lib/audio'
 import { Modal } from '../components/Modal'
 import { getItemLore } from '../lib/item-lore'
 import { ItemTooltip } from '../components/ItemTooltip'
-import {
-  getRememberedCottageCompanionMode,
-  rememberCottageCompanionMode,
-  type CottageCompanionMode,
-} from '../lib/cottage-scene'
+import { rememberCottageCompanionMode, type CottageCompanionMode } from '../lib/cottage-scene'
 import '../cottage-world.css'
 
 const COMPANION_DAYLINES: Record<string, [string, string, string]> = {
@@ -26,6 +22,12 @@ const COMPANION_DAYLINES: Record<string, [string, string, string]> = {
   moon_owl: ['暮羽子收拢翅膀，听着夜色慢慢落下来。', '暮羽子侧着头，像在听远处还没停下的钟声。', '暮羽子落在高处安静望着书桌，没有催促你开口。'],
   cloud_rabbit: ['小丘把长耳轻轻垂下，在炉火旁歇一会儿。', '小丘偏过耳朵听风，随后慢慢跳到窗边。', '小丘趴在晒暖的地板上，像一小片停住的云影。'],
   ember_drake: ['小火牙把翅膀收得很紧，余烬般的亮点安静闪着。', '小火牙抬头望了望远山的方向，又回到你身边。', '小火牙在窗边停了一会儿，像在看还未抵达的群山。'],
+}
+
+const COMPANION_KEEPSAKES: Record<string, string> = {
+  hearth_hound: 'flame_scatter', moss_fox: 'rain_moss_vein', glimmer_cat: 'violet_mist_glass',
+  river_otter: 'river_stone', iron_badger: 'gray_pattern_stone', moon_owl: 'wind_hill_feather',
+  cloud_rabbit: 'cloud_shadow_grass', ember_drake: 'dragon_scale',
 }
 
 function CottageBackpackItem({ entry, onUse }: { entry: any; onUse: (entry: any) => void }) {
@@ -42,7 +44,16 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
   const { dashboard, notify, refresh } = useApp()
   if (!dashboard) return null
   const { today, world } = dashboard
-  const companion = world.companions.active
+  // This is intentionally a room-only choice. It changes who walks beside the
+  // traveller inside the cottage, never the companion selected for expeditions.
+  const [cottageFollowerId, setCottageFollowerId] = useState<string | null>(null)
+  // A resting companion never appears as the cottage follower. The saved
+  // active choice is preserved for recovery, while the visible room falls
+  // back to another healthy friend until then.
+  const companion = (cottageFollowerId ? world.companions.owned.find((item) => item.id === cottageFollowerId && !item.is_ill) : null)
+    || (world.companions.active && !world.companions.active.is_ill
+    ? world.companions.active
+    : world.companions.owned.find((item) => !item.is_ill)) || null
   const [clockNow, setClockNow] = useState(() => Date.now())
   const [hearthLit, setHearthLit] = useState(false)
   const [hearthOpen, setHearthOpen] = useState(false)
@@ -62,32 +73,58 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
     const timer = window.setInterval(() => setClockNow(Date.now()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
+  // Entering the cottage must immediately return keyboard ownership to the
+  // playable scene. Previously this could remain on a closing page/modal
+  // until navigating away and back once.
+  useEffect(() => {
+    setInputContext('world')
+    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pixi-cottage-scene')?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
   useEffect(() => { window.growthArc.hearth.get().then((state) => setHearthLit(state.lit)).catch(() => {}) }, [])
+  useEffect(() => {
+    setHearthFireSound(effectiveHearthLit)
+    return () => setHearthFireSound(false)
+  }, [effectiveHearthLit])
 
+  const [talkingCompanion, setTalkingCompanion] = useState<Companion | null>(null)
+  const dialogueCompanion = talkingCompanion || companion
   const messages = useMemo(() => {
-    const name = companion?.nickname || '伙伴'
+    const name = dialogueCompanion?.nickname || '伙伴'
     const now = new Date(clockNow)
     const hour = now.getHours()
     const minutesOfDay = hour * 60 + now.getMinutes()
     const list: string[] = []
-    const lines = COMPANION_DAYLINES[companion?.species_id || '']
+    const lines = COMPANION_DAYLINES[dialogueCompanion?.species_id || '']
     const timeLineIndex = minutesOfDay >= 18 * 60 + 30 || minutesOfDay < 5 * 60 ? 0 : minutesOfDay < 14 * 60 ? 2 : 1
     if (lines?.[timeLineIndex]) list.push(lines[timeLineIndex])
-    if (companion?.evolutionReady) list.push(`${name}感到体内有什么正在变化。也许该去伙伴营地看看。`)
+    if (dialogueCompanion?.evolutionReady) list.push(`${name}感到体内有什么正在变化。也许该去伙伴营地看看。`)
     if (world.latestExpedition?.rareFound) list.push('你看到宝箱里那道光了吗？这次远征带回了不寻常的东西。')
     if (today.focusSeconds > 0) list.push(`今天我们已经走了${formatDuration(today.focusSeconds, true)}的路。每一步都算数。`)
     else list.push('还没有出发也没关系。壁炉还暖着，我们可以慢慢准备。')
     if (hour >= 17 && hour < 22) list.push('远处的商道亮起了灯。现在出发，也许会遇到晚归的商队。')
     else if (timeLineIndex === 0) list.push('今晚很安静。你想再坐一会儿也可以。')
     return list
-  }, [clockNow, companion, today.focusSeconds, world.latestExpedition])
+  }, [clockNow, dialogueCompanion, today.focusSeconds, world.latestExpedition])
 
   const [messageIndex, setMessageIndex] = useState(0)
   const [dialogueOpen, setDialogueOpen] = useState(false)
-  const [dialogueChoice, setDialogueChoice] = useState(2)
-  const [companionMode, setCompanionMode] = useState<CottageCompanionMode>(() => getRememberedCottageCompanionMode())
+  const [dialogueChoice, setDialogueChoice] = useState(0)
+  // Each cottage visit begins with the expedition companion walking beside
+  // the traveller. Everyone else is free to move naturally in the room.
+  const [companionMode, setCompanionMode] = useState<CottageCompanionMode>('follow')
+  // These are room-only behaviours.  They never replace the companion chosen
+  // for an expedition and are deliberately kept out of world-state writes.
+  const [residentModes, setResidentModes] = useState<Record<string, CottageCompanionMode>>({})
+  const [giftMenuOpen, setGiftMenuOpen] = useState(false)
+  const [giftBusy, setGiftBusy] = useState(false)
+  const [giftResult, setGiftResult] = useState<string | null>(null)
+  const giftOptions = dialogueCompanion ? world.inventory.filter((entry) => entry.item_id === 'berry_bread' || entry.item_id === 'honey_amber' || entry.item_id === COMPANION_KEEPSAKES[dialogueCompanion.species_id]) : []
   const closeDialogue = useCallback(() => {
     setDialogueOpen(false)
+    setTalkingCompanion(null)
+    setGiftMenuOpen(false)
+    setGiftResult(null)
     setInputContext('world')
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pixi-cottage-scene')?.focus())
   }, [])
@@ -96,9 +133,12 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pixi-cottage-scene')?.focus())
   }, [])
   const closeOverlay = useCallback((setOpen: (value: boolean) => void) => { setOpen(false); resumeWorld() }, [resumeWorld])
-  const openDialogue = useCallback(() => {
+  const openDialogue = useCallback((target: Companion) => {
+    setTalkingCompanion(target)
     setMessageIndex(0)
-    setDialogueChoice(2)
+    setDialogueChoice(0)
+    setGiftMenuOpen(false)
+    setGiftResult(null)
     setInputContext('dialog')
     setDialogueOpen(true)
   }, [])
@@ -111,36 +151,73 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
       return index + 1
     })
   }, [closeDialogue, messages.length])
-  const interactWithCompanion = useCallback(() => {
+  const interactWithCompanion = useCallback((target: Companion) => {
     if (dialogueOpen) advanceMessage()
-    else openDialogue()
+    else openDialogue(target)
   }, [advanceMessage, dialogueOpen, openDialogue])
-  const toggleCompanionMode = useCallback(() => {
-    setCompanionMode((current) => {
-      const next: CottageCompanionMode = current === 'follow' ? 'stay' : 'follow'
+  const setCompanionBehaviour = useCallback((next: CottageCompanionMode) => {
+    if (!dialogueCompanion) return
+    if (next === 'follow' && dialogueCompanion.id !== companion?.id) {
+      if (companion) setResidentModes((current) => ({ ...current, [companion.id]: 'wander' }))
+      setResidentModes((current) => ({ ...current, [dialogueCompanion.id]: 'follow' }))
+      setCottageFollowerId(dialogueCompanion.id)
+      rememberCottageCompanionMode('follow')
+      setCompanionMode('follow')
+      notify(`${dialogueCompanion.nickname}轻轻靠近，开始跟着你的脚步。`, 'success')
+      return
+    }
+    if (dialogueCompanion.id === companion?.id) {
       rememberCottageCompanionMode(next)
-      return next
-    })
-  }, [])
+      setCompanionMode(next)
+    } else {
+      setResidentModes((current) => ({ ...current, [dialogueCompanion.id]: next }))
+    }
+    const wording = next === 'stay' ? '在原地安静等着。' : next === 'wander' ? '开始在熟悉的角落自在活动。' : '又跟上了你的脚步。'
+    notify(`${dialogueCompanion.nickname}${wording}`, 'success')
+  }, [companion, dialogueCompanion, notify])
+  const giveCottageGift = useCallback(async (entry: any) => {
+    if (!dialogueCompanion || giftBusy) return
+    try {
+      setGiftBusy(true)
+      const result = await window.growthArc.inventory.useTarget(entry.item_id, dialogueCompanion.id)
+      setGiftResult(result.effect)
+      notify(result.effect, 'success')
+      void refresh()
+    } catch (error) { notify(error instanceof Error ? error.message : String(error), 'error') } finally { setGiftBusy(false) }
+  }, [dialogueCompanion, giftBusy, notify, refresh])
+  const dialogueMode = dialogueCompanion?.id === companion?.id ? companionMode : (dialogueCompanion ? residentModes[dialogueCompanion.id] || 'wander' : 'stay')
+  const dialogueChoices = [
+    ...(dialogueCompanion && dialogueMode !== 'follow' ? [{ id: 'follow', label: '让它跟着我' }] : []),
+    ...(dialogueCompanion && dialogueMode !== 'stay' ? [{ id: 'stay', label: '让它在这里待着' }] : []),
+    ...(dialogueCompanion && dialogueMode !== 'wander' ? [{ id: 'wander', label: '让它自由活动' }] : []),
+    { id: 'close', label: '结束交谈' },
+    { id: 'continue', label: '继续' },
+    ...(giftOptions.length > 0 ? [{ id: 'gift', label: '分享礼物' }] : []),
+  ] as const
+  const activateDialogueChoice = useCallback((choice: typeof dialogueChoices[number]['id']) => {
+    if (choice === 'follow' || choice === 'stay' || choice === 'wander') setCompanionBehaviour(choice)
+    else if (choice === 'close') closeDialogue()
+    else if (choice === 'continue') advanceMessage()
+    else setGiftMenuOpen(true)
+  }, [advanceMessage, closeDialogue, setCompanionBehaviour])
   useEffect(() => {
     if (!dialogueOpen) return
     const onKey = (event: KeyboardEvent) => {
       if (['Escape', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) { event.stopPropagation(); event.stopImmediatePropagation() }
       if (event.key === 'Escape') { event.preventDefault(); playUISound('select'); closeDialogue(); return }
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        event.preventDefault(); playUISound('select'); setDialogueChoice((value) => event.key === 'ArrowLeft' ? (value + 2) % 3 : (value + 1) % 3); return
+        event.preventDefault(); playUISound('select'); setDialogueChoice((value) => event.key === 'ArrowLeft' ? (value + dialogueChoices.length - 1) % dialogueChoices.length : (value + 1) % dialogueChoices.length); return
       }
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault()
         playUISound('select')
-        if (dialogueChoice === 0) toggleCompanionMode()
-        else if (dialogueChoice === 1) closeDialogue()
-        else advanceMessage()
+        const choice = dialogueChoices[dialogueChoice]
+        if (choice) activateDialogueChoice(choice.id)
       }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [advanceMessage, closeDialogue, dialogueChoice, dialogueOpen, toggleCompanionMode])
+  }, [activateDialogueChoice, closeDialogue, dialogueChoice, dialogueChoices, dialogueOpen])
 
   const handleAction = (action: CottageAction) => {
     // The cottage door is the direct expedition entry point. The town remains
@@ -223,21 +300,23 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         playerName={dashboard.settings.user_name || '旅行者'}
         playerAvatar={world.foundation.player.outfit_id || 'traveler_clothes'}
         companion={companion}
+        companions={world.companions.owned.filter((item) => !item.is_ill)}
         onAction={handleAction}
         onCompanionInteract={interactWithCompanion}
         companionMode={companionMode}
+        residentModes={residentModes}
+        pausedCompanionId={dialogueOpen ? dialogueCompanion?.id : null}
         hearthLit={effectiveHearthLit}
         hearthAvailable
       />
-      {dialogueOpen && <div className='cottage-world-dialogue' role='dialog' aria-label={`${companion?.nickname || '伙伴'}的对话`}>
+      {dialogueOpen && <div className='cottage-world-dialogue' role='dialog' aria-label={`${dialogueCompanion?.nickname || '伙伴'}的对话`}>
         <span className='dialogue-heart'>♥</span>
-        <span><strong>{companion?.nickname || '伙伴'}<small>{companion?.stageName || '常伴伙伴'} · 可在伙伴营地更换</small></strong><em>{messages[messageIndex]}</em></span>
+        <span><strong>{dialogueCompanion?.nickname || '伙伴'}<small>{dialogueCompanion?.stageName || '常伴伙伴'} · {dialogueMode === 'follow' ? '正在跟着你' : dialogueMode === 'wander' ? '正在自在活动' : '正在原地等候'}</small></strong><em>{messages[messageIndex]}</em></span>
         <div className='cottage-dialogue-controls'>
-          <button className={dialogueChoice === 0 ? 'is-selected' : ''} onClick={toggleCompanionMode}>{dialogueChoice === 0 ? '▶ ' : ''}{companionMode === 'follow' ? '在这里等我' : '一起走吧'}</button>
-          <button className={dialogueChoice === 1 ? 'is-selected' : ''} onClick={closeDialogue}>{dialogueChoice === 1 ? '▶ ' : ''}结束交谈</button>
-          <button className={dialogueChoice === 2 ? 'is-selected' : ''} onClick={advanceMessage}>{dialogueChoice === 2 ? '▶ ' : ''}继续</button>
+          {dialogueChoices.map((choice, index) => <button key={choice.id} className={dialogueChoice === index ? 'is-selected' : ''} onClick={() => activateDialogueChoice(choice.id)}>{dialogueChoice === index ? '▶ ' : ''}{choice.label}</button>)}
         </div>
       </div>}
+      {giftMenuOpen && <Modal title={`送给${dialogueCompanion?.nickname || '伙伴'}`} onClose={() => setGiftMenuOpen(false)} className="cottage-gift-backpack-modal"><div className="cottage-gift-backpack-head"><span><Icon name="spark" size={20} /></span><div><small>从小屋背包里挑一件礼物</small><strong>{dialogueCompanion?.nickname || '伙伴'}会记得这份心意。</strong></div></div><div className="cottage-gift-backpack-grid">{giftOptions.map((entry) => <button key={entry.item_id} className={`cottage-gift-item ${entry.item.rarity}`} disabled={giftBusy} onClick={() => void giveCottageGift(entry)}><span><Icon name={entry.item.icon} size={22} /></span><div><small>{entry.item.rarity === 'common' ? '普通物品' : entry.item.rarity === 'uncommon' ? '罕见物品' : entry.item.rarity === 'rare' ? '稀有物品' : '珍稀物品'}</small><strong>{entry.item.name}</strong><p>{entry.item.description}</p><em>{getItemLore(entry.item).effectLabel}</em></div><b>×{entry.quantity}</b></button>)}</div>{giftResult && <p className="cottage-gift-result">{giftResult}</p>}<footer className="modal-footer"><button className="button button-ghost" onClick={() => setGiftMenuOpen(false)}>先收好</button></footer></Modal>}
       {hearthOpen && <Modal title="炉火边" onClose={() => !hearthBusy && closeOverlay(setHearthOpen)} className="hearth-modal">
         <div className="hearth-panel"><div className={`hearth-panel-flame ${effectiveHearthLit ? 'is-lit' : ''}`}>✦</div><div><small>{isNight ? '夜色替你守着火种' : '小屋里的火光'}</small><h3>{effectiveHearthLit ? '炉火正温暖地燃着' : '炉膛里还没有火光'}</h3><p>{isNight ? '夜里的炉火会自行燃起，火上可以慢慢熬制与锻造。' : effectiveHearthLit ? '火上可以慢慢熬制山草药汤，也能熔炼蜜色琥珀。' : '点燃炉火后，才可以开始熬制与锻造。'}</p></div></div>
         <div className="hearth-recipes"><article><span>♨</span><div><strong>山草药汤</strong><small>山野药草束 {inventoryCount('herb_bundle')} / 10</small><p>供正在休养的伙伴饮用，康复并获得羁绊 +5。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('herb_bundle') < 10} onClick={() => void craftAtHearth('herbal_soup')}>熬制</button></article><article><span>◇</span><div><strong>珍稀蜜色琥珀</strong><small>蜜色琥珀碎片 {inventoryCount('amber_chip')} / 10</small><p>送给伙伴后，羁绊 +10。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('amber_chip') < 10} onClick={() => void craftAtHearth('honey_amber')}>锻造</button></article></div>

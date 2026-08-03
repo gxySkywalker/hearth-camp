@@ -27,9 +27,9 @@ describe('angel AI runtime', () => {
     expect(isAngelNarrativeEligible({ letter_type: 'festival' })).toBe(false)
   })
 
-  it('keeps a template body after the player has read it', () => {
+  it('adopts a successful AI body even if the player opened the template first', () => {
     expect(shouldUseAiBody({ is_read: 0 })).toBe(true)
-    expect(shouldUseAiBody({ is_read: 1, body_source: 'template' })).toBe(false)
+    expect(shouldUseAiBody({ letter_type: 'daily', is_read: 1, body_source: 'template' })).toBe(true)
   })
 
   it('skips without a key and never calls the provider', async () => {

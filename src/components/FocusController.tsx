@@ -6,8 +6,9 @@ import { Modal } from './Modal'
 import { setInputContext, getInputContext } from '../lib/inputContext'
 import { PixelCompanion } from './PixelCompanion'
 import { CompanionGrowthCeremony } from './CompanionGrowthCeremony'
-import type { Companion, CompanionGrowthEvent, ExpeditionResult } from '../types'
-import { bgm } from '../lib/audio'
+import { ItemTooltip } from './ItemTooltip'
+import type { Companion, CompanionGrowthEvent, ExpeditionResult, LootItem } from '../types'
+import { bgm, playLevelUpSound, playRewardSound } from '../lib/audio'
 import expeditionDayBackdrop from '../../assets/art/environments/expedition/expedition_day_v1.png'
 import expeditionDuskBackdrop from '../../assets/art/environments/expedition/expedition_dusk_v1.png'
 import expeditionNightBackdrop from '../../assets/art/environments/expedition/expedition_night_v1.png'
@@ -36,6 +37,34 @@ function calcContribXp(tasks: { id: string; sort_order: number }[], contributed:
   })
 }
 
+function CaravanStockItem({
+  entry, index, busy, coins, onBuy,
+}: {
+  entry: { item: LootItem; price: number; sold: boolean }
+  index: number
+  busy: number | null
+  coins: number
+  onBuy: (index: number) => void
+}) {
+  const triggerRef = useRef<HTMLElement | null>(null)
+  const [hover, setHover] = useState(false)
+  return <>
+    <article
+      ref={triggerRef}
+      tabIndex={0}
+      className={`caravan-item ${entry.item.rarity} ${entry.sold ? 'is-sold' : ''}`}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+    >
+      <span className="caravan-item-icon"><Icon name={entry.item.icon} size={24} /></span><small>{entry.item.rarity === 'uncommon' ? '罕见遗存' : entry.item.rarity === 'rare' ? '稀有遗存' : '珍稀遗存'}</small><strong>{entry.item.name}</strong><p>{entry.item.description}</p>
+      <button className="button button-primary" disabled={entry.sold || busy !== null || coins < entry.price} onClick={() => onBuy(index)}>{entry.sold ? '已换走' : busy === index ? '交换中…' : <><Icon name="coin" size={15} />{entry.price} 枚交换</>}</button>
+    </article>
+    <ItemTooltip item={entry.item} exchangePrice={entry.price} triggerRef={triggerRef} visible={hover} />
+  </>
+}
+
 export function FocusController({ showLauncher = true }: { showLauncher?: boolean }) {
   const { activeSession, setActiveSession, structure, dashboard, refresh, notify } = useApp()
   const [startOpen, setStartOpen] = useState(false)
@@ -48,6 +77,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
   const [pendingGrowthEvent, setPendingGrowthEvent] = useState<CompanionGrowthEvent | null>(null)
   const [newCompanion, setNewCompanion] = useState<Companion | null>(null)
   const [pendingCaravan, setPendingCaravan] = useState<ExpeditionResult | null>(null)
+  const [pendingBard, setPendingBard] = useState<ExpeditionResult | null>(null)
   const [levelUps, setLevelUps] = useState<Array<{ level: number }> >([])
   const [stopResult, setStopResult] = useState<{ primaryTask: any; contributedTasks: any[]; xpAwarded: number; session: any } | null>(null)
   const [taskId, setTaskId] = useState('')
@@ -84,6 +114,14 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
     if (activeSession) bgm.play('expedition')
     else bgm.play('cottage')
   }, [activeSession])
+
+  // Every ordinary gain gets the warm reward cue. Level-ups and companion
+  // growth deliberately use their own ceremony cue instead.
+  useEffect(() => { if (expedition) playRewardSound() }, [expedition?.sessionId])
+  useEffect(() => { if (newCompanion) playRewardSound() }, [newCompanion?.id])
+  useEffect(() => { if (caravan) playRewardSound() }, [caravan?.sessionId])
+  useEffect(() => { if (bardPoem) playRewardSound() }, [bardPoem?.id])
+  useEffect(() => { if (levelUps[0]) playLevelUpSound() }, [levelUps[0]?.level])
 
   useEffect(() => {
     snapshotAt.current = Date.now()
@@ -243,19 +281,43 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
   const drops = expedition?.drops ?? []
   const hasRelic = !!expedition?.knowledgeRelic
   const compactRewards = drops.length <= 2 && !expedition?.rareFound
+  const revealBardThenGrowth = async (bardSource: ExpeditionResult, event: CompanionGrowthEvent | null) => {
+    try {
+      const poem = await window.growthArc.bard.claim(bardSource.sessionId)
+      if (!poem.exhausted) {
+        await refresh()
+        setPendingGrowthEvent(event)
+        setBardPoem(poem)
+        return
+      }
+    } catch (error) {
+      notify(friendlyError(error), 'error')
+    }
+    if (event) {
+      setPendingGrowthEvent(null)
+      setGrowthEvent(event)
+    }
+  }
   const returnToHome = () => {
     const event = expedition?.growthEvent || null
     const caravanResult = expedition?.caravan ? expedition : null
+    const bardResult = expedition?.bard ? expedition : null
     const foundCompanion = expedition?.newCompanion || null
     setExpedition(null)
     setStopResult(null)
     if (foundCompanion) {
       setPendingGrowthEvent(event)
       setPendingCaravan(caravanResult)
+      setPendingBard(bardResult)
       setNewCompanion(foundCompanion)
       return
     }
-    if (caravanResult) setCaravan(caravanResult)
+    if (caravanResult) {
+      setPendingGrowthEvent(event)
+      setPendingBard(bardResult)
+      setCaravan(caravanResult)
+    }
+    else if (bardResult) void revealBardThenGrowth(bardResult, event)
     else if (event) setGrowthEvent(event)
   }
   const closeNewCompanion = () => {
@@ -265,6 +327,12 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
       setPendingCaravan(null)
       return
     }
+    if (pendingBard) {
+      const bardSource = pendingBard
+      setPendingBard(null)
+      void revealBardThenGrowth(bardSource, pendingGrowthEvent)
+      return
+    }
     if (pendingGrowthEvent) {
       setGrowthEvent(pendingGrowthEvent)
       setPendingGrowthEvent(null)
@@ -272,21 +340,12 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
   }
   const leaveCaravan = async () => {
     const event = pendingGrowthEvent || caravan?.growthEvent || null
-    const bard = caravan?.bard
-    const sessionId = caravan?.sessionId
+    const bardSource = pendingBard
     setCaravan(null)
-    try {
-      if (bard && sessionId) {
-        const poem = await window.growthArc.bard.claim(sessionId)
-        if (!poem.exhausted) {
-          // 诗人离开后，才轮到伙伴述说这次旅途的变化。
-          setPendingGrowthEvent(event)
-          setBardPoem(poem)
-          return
-        }
-      }
-    } catch (error) {
-      notify(friendlyError(error), 'error')
+    setPendingBard(null)
+    if (bardSource) {
+      await revealBardThenGrowth(bardSource, event)
+      return
     }
     if (event) {
       setPendingGrowthEvent(null)
@@ -307,6 +366,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
       const updated = await window.growthArc.caravan.buy(caravan.sessionId, slotIndex)
       setCaravan(updated)
       await refresh()
+      playRewardSound()
       notify('铜币换成了一件新的旅途遗存。', 'success')
     } catch (error) {
       notify(friendlyError(error), 'error')
@@ -370,7 +430,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
           <span className="companion-pick-kicker">本次同行伙伴</span>
           <div className="companion-pick-portrait"><PixelCompanion companion={selectedStartCompanion} size="medium" /></div>
           <div className="companion-pick-name">{selectedStartCompanion?.nickname || '等待同行的伙伴'}</div>
-          {selectedStartCompanion && <small className="companion-pick-stage">这次是 {selectedStartCompanion.stageName}</small>}
+          {selectedStartCompanion && <small className="companion-pick-stage">这次是 {selectedStartCompanion.nickname}</small>}
           <select aria-label="选择本次同行伙伴" value={companionId} onChange={e => setCompanionId(e.target.value)}>{companions.map(c => <option key={c.id} value={c.id}>{c.nickname}</option>)}</select>
           <p>带上伙伴，一起把这段路走成新的记忆。</p>
         </aside>
@@ -551,14 +611,11 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
     {caravan && <Modal title="暮色商队" onClose={() => void leaveCaravan()} size="wide" className="caravan-modal">
       <div className="caravan-banner"><span>✦</span><div><small>商道上的短暂停留</small><h3>篷布下有些远方带来的遗存</h3><p>{caravan.caravan?.greeting}</p></div><b><Icon name="coin" size={16} />{dashboard?.world.inventory.find(entry => entry.item_id === 'copper_coin')?.quantity || 0}</b></div>
       <div className="caravan-stock">
-        {caravan.caravan?.items.map((entry, index) => <article key={`${entry.item.id}-${index}`} className={`caravan-item ${entry.item.rarity} ${entry.sold ? 'is-sold' : ''}`}>
-          <span className="caravan-item-icon"><Icon name={entry.item.icon} size={24} /></span><small>{entry.item.rarity === 'uncommon' ? '罕见遗存' : entry.item.rarity === 'rare' ? '稀有遗存' : '珍稀遗存'}</small><strong>{entry.item.name}</strong><p>{entry.item.description}</p>
-          <button className="button button-primary" disabled={entry.sold || caravanBusy !== null || Number(dashboard?.world.inventory.find(item => item.item_id === 'copper_coin')?.quantity || 0) < entry.price} onClick={() => void buyCaravanItem(index)}>{entry.sold ? '已换走' : caravanBusy === index ? '交换中…' : <><Icon name="coin" size={15} />{entry.price} 枚交换</>}</button>
-        </article>)}
+        {caravan.caravan?.items.map((entry, index) => <CaravanStockItem key={`${entry.item.id}-${index}`} entry={entry} index={index} busy={caravanBusy} coins={Number(dashboard?.world.inventory.find(item => item.item_id === 'copper_coin')?.quantity || 0)} onBuy={(slotIndex) => void buyCaravanItem(slotIndex)} />)}
       </div>
       <footer className="modal-footer"><small>商队不会催促你。看完后，它们会沿着夜路继续前行。</small><button className="button button-ghost" onClick={() => void leaveCaravan()}>目送商队离开</button></footer>
     </Modal>}
-    {bardPoem && <Modal title="路边的吟游诗人" onClose={closeBardPoem} className="caravan-modal"><div className="caravan-banner"><span>♪</span><div><small>旧斗篷轻轻摇动</small><h3>“我想送一首诗给你。”</h3><p style={{whiteSpace:'pre-line'}}>{bardPoem.poem.text}</p><small>{bardPoem.poem.source}</small><p>{bardPoem.poem.encouragement}</p></div></div><footer className="modal-footer"><button className="button button-primary" onClick={closeBardPoem}>把这页诗收进诗集</button></footer></Modal>}
+    {bardPoem && <Modal title="路边的吟游诗人" onClose={closeBardPoem} className="bard-modal"><div className="bard-gift-scene"><span className="bard-note">♪</span><small>路旁的旧斗篷轻轻摇动</small><h3>“我想送一首诗给你。”</h3><p className="bard-poem-text">{bardPoem.poem.text}</p><small className="bard-poem-source">{bardPoem.poem.source}</small><p className="bard-poem-encouragement">{bardPoem.poem.encouragement}</p>{bardPoem.gift && <div className="bard-road-gift"><span><Icon name={bardPoem.gift.icon} size={22} /></span><div><small>相遇的赠礼 · 已收进小屋背包</small><strong>{bardPoem.gift.name} ×1</strong><p>{bardPoem.gift.description}</p></div></div>}</div><footer className="modal-footer"><button className="button button-primary" onClick={closeBardPoem}>把这页诗收进诗集</button></footer></Modal>}
     {growthEvent && <CompanionGrowthCeremony event={growthEvent} onComplete={completeGrowthCeremony} />}
     {!expedition && !newCompanion && !caravan && !bardPoem && !growthEvent && levelUps[0] && <Modal title="旅人的新页码" onClose={() => setLevelUps((items) => items.slice(1))} className="level-up-modal"><div className="level-up-copy"><span>✦</span><small>炉火与旧路都记得这一天</small><h2>恭喜你，又更进一步啦！</h2><p>你抵达了旅人等级 {levelUps[0].level}。不必急着奔向远方，走稳眼前这一段路就很好。</p><div><article><Icon name="bread" size={24} /><strong>莓果旅行面包 ×1</strong></article><article><Icon name="coin" size={24} /><strong>旧王朝铜币 ×1</strong></article></div><em>礼物已经悄悄收进小屋背包。</em></div><footer className="modal-footer"><button className="button button-primary" onClick={() => setLevelUps((items) => items.slice(1))}>收下这份旅途心意</button></footer></Modal>}
   </>

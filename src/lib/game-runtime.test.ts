@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 // @ts-expect-error The Electron game module is CommonJS and intentionally shared with tests.
 import game from '../../electron/game.cjs'
 
-const { durationTier, rollExpedition, rollCaravanEncounter, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
+const { durationTier, rollExpedition, rollCaravanEncounter, rollBardEncounter, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
 
 describe('expedition rules', () => {
   it('improves reward tiers with healthy duration caps', () => {
@@ -46,6 +46,15 @@ describe('expedition rules', () => {
     expect(caravan.chance).toBe(0.70)
     expect(caravan.items.every((entry: any) => entry.item.rarity !== 'common')).toBe(true)
     expect([...new Set(caravan.items.map((entry: any) => entry.item.id))]).toHaveLength(4)
+  })
+
+  it('lets the bard appear independently of the dusk caravan and bring one common road gift', () => {
+    let bard: any = null
+    for (let index = 0; index < 80 && !bard; index += 1) bard = rollBardEncounter({ sessionId: `bard-${index}`, activeSeconds: 90 * 60 })
+    expect(bard).not.toBeNull()
+    expect(bard.chance).toBe(0.5)
+    expect(bard.gift.rarity).toBe('common')
+    expect(rollBardEncounter({ sessionId: 'too-short', activeSeconds: 0 })).toBeNull()
   })
 
   it('uses fixed bond chapters and resolves final growth from local time', () => {

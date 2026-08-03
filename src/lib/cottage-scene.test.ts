@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { advanceCottageCompanion, areCottageEntitiesCrowded, findCottageCompanionYieldPosition, getCottageInteraction, getCottageMoveDirection, isNearCottageCompanion, resolveCottageMove } from './cottage-scene'
+import { advanceCottageCompanion, areCottageEntitiesCrowded, COTTAGE_RESIDENT_POSITIONS, findCottageCompanionYieldPosition, getCottageInteraction, getCottageMoveDirection, getCottageResidentPosition, isNearCottageCompanion, resolveCottageMove } from './cottage-scene'
 import { TOWN_COMPANION_START, TOWN_PLAYER_START, getTownInteraction, resolveTownMove } from './town-scene'
 import { createTownGrassTileData, TOWN_GRASS_PALETTE, TOWN_GRASS_TILE_SIZE, TOWN_ROAD_TILE_HEIGHT, TOWN_ROAD_TILE_WIDTH } from './town-terrain'
 import { canReachTownNorthExit, TOWN_ENTRANCE_ROAD_NODES, TOWN_ROAD_NODES } from './town-road-graph'
@@ -77,6 +77,12 @@ describe('cottage movement', () => {
   it('detects when the player is close enough to talk', () => {
     expect(isNearCottageCompanion({ x: 276, y: 144 })).toBe(true)
     expect(isNearCottageCompanion({ x: 20, y: 120 })).toBe(false)
+  })
+
+  it('gives every frozen companion species a stable cottage resting place', () => {
+    expect(Object.keys(COTTAGE_RESIDENT_POSITIONS)).toHaveLength(8)
+    expect(getCottageResidentPosition('moon_owl')).toEqual({ x: 292, y: 38 })
+    expect(getCottageResidentPosition('unknown')).toEqual({ x: 306, y: 164 })
   })
 
   it('moves a following companion toward the player but leaves a waiting companion in place', () => {

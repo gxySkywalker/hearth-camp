@@ -219,7 +219,18 @@ function getBgmSources() {
   const sourceFor = (baseFolder, filename) => {
     const file = path.join(baseFolder, filename)
     try {
-      return fs.statSync(file).isFile() ? pathToFileURL(file).toString() : null
+      if (!fs.statSync(file).isFile()) return null
+      // In development the renderer comes from Vite (http://127.0.0.1). Let
+      // Vite serve the bundled files from the workspace instead of asking an
+      // http page to load a file:// media URL. The packaged app continues to
+      // use its normal resource file URL.
+      const isBundledDevTrack = !app.isPackaged && baseFolder === bundledBgmFolderPath() && process.env.VITE_DEV_SERVER_URL
+      if (isBundledDevTrack) {
+        const devOrigin = process.env.VITE_DEV_SERVER_URL.replace(/\/$/, '')
+        const vitePath = encodeURI(file.replace(/\\/g, '/'))
+        return `${devOrigin}/@fs/${vitePath}`
+      }
+      return pathToFileURL(file).toString()
     } catch {
       return null
     }
@@ -272,6 +283,14 @@ function migrateRetiredDeepSeekLetterModel() {
   return 0
 }
 
+function promoteSuccessfulAiNarratives() {
+  // Earlier builds preserved the local template when a player opened the
+  // letter before the background request returned. The AI body was saved but
+  // permanently invisible. Adopt any such completed narration on startup and
+  // before each retry pass; local templates remain the fallback on failure.
+  database.run("UPDATE letters SET body_source = 'ai' WHERE letter_type IN ('daily', 'weekly') AND ai_status = 'success' AND ai_body IS NOT NULL AND ai_body != ''")
+}
+
 async function ensureAiNarratives() {
   const MAX_RETRIES = 3
   const GLOBAL_TIMEOUT = 60000 // 60s max for all letters
@@ -279,6 +298,7 @@ async function ensureAiNarratives() {
   const summary = { considered: 0, polished: 0, failed: 0, skipped: 0 }
 
   migrateRetiredDeepSeekLetterModel()
+  promoteSuccessfulAiNarratives()
 
   // Only process NEW letters (pending), not historical template letters.
   // Failed letters with retries remaining are also retried.
@@ -302,7 +322,7 @@ async function ensureAiNarratives() {
     if (result.success) {
       const useAiBody = shouldUseAiBody(letter) ? 1 : 0
       database.run(
-        "UPDATE letters SET ai_body = ?, body_source = CASE WHEN ? = 1 AND is_read = 0 AND body_source = 'template' THEN 'ai' ELSE body_source END, ai_status = 'success', ai_provider = ?, ai_model = ?, ai_prompt_version = ?, ai_retry_count = 0 WHERE id = ?",
+        "UPDATE letters SET ai_body = ?, body_source = CASE WHEN ? = 1 THEN 'ai' ELSE body_source END, ai_status = 'success', ai_provider = ?, ai_model = ?, ai_prompt_version = ?, ai_retry_count = 0 WHERE id = ?",
         [result.text, useAiBody, result.provider, result.model, ANGEL_PROMPT_VERSION, letter.id]
       )
       summary.polished += 1

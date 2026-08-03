@@ -1215,14 +1215,14 @@ class StudyDatabase {
     const rewards = JSON.parse(expedition.rewards_json || '{}')
     if (!rewards.bard) throw new Error('这次远征没有遇见吟游诗人')
     const existing = this.one('SELECT * FROM poetry_collection WHERE session_id = ?', [sessionId])
-    if (existing) return { ...existing, poem: BARD_POEMS.find((poem) => poem.id === existing.poem_id) }
+    if (existing) return { ...existing, poem: BARD_POEMS.find((poem) => poem.id === existing.poem_id), gift: rewards.bard.gift || null }
     const owned = new Set(this.all('SELECT poem_id FROM poetry_collection').map((row) => row.poem_id))
     const candidates = BARD_POEMS.filter((poem) => !owned.has(poem.id))
     if (!candidates.length) return { exhausted: true }
     const poem = candidates[crypto.createHash('sha256').update(`${sessionId}:poem`).digest().readUInt32LE(0) % candidates.length]
     const row = { id: crypto.randomUUID(), session_id: sessionId, poem_id: poem.id, obtained_at: expedition.created_at }
     this.run('INSERT INTO poetry_collection (id, session_id, poem_id, obtained_at) VALUES (?, ?, ?, ?)', [row.id, row.session_id, row.poem_id, row.obtained_at])
-    return { ...row, poem }
+    return { ...row, poem, gift: rewards.bard.gift || null }
   }
 
   setHearthLit(lit) {
@@ -1522,12 +1522,21 @@ class StudyDatabase {
       locations: this.getExpeditionLocationPool(),
     })
     if (rareBoost) this.run("DELETE FROM settings WHERE key = 'rare_boost'", [], false)
+    // The bard is a separate road encounter. It is deliberately not gated by
+    // the dusk caravan: a quiet song can find the traveller on any valid road.
+    const bard = rollBardEncounter({ sessionId, activeSeconds })
 
     for (const drop of rolled.drops) {
       this.run(`INSERT INTO inventory (item_id, quantity, first_found_at, updated_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(item_id) DO UPDATE SET quantity = quantity + excluded.quantity, updated_at = excluded.updated_at`,
       [drop.item.id, drop.quantity, createdAt, createdAt], false)
+    }
+    if (bard?.gift) {
+      this.run(`INSERT INTO inventory (item_id, quantity, first_found_at, updated_at)
+        VALUES (?, 1, ?, ?)
+        ON CONFLICT(item_id) DO UPDATE SET quantity = quantity + excluded.quantity, updated_at = excluded.updated_at`,
+      [bard.gift.id, createdAt, createdAt], false)
     }
 
     let activeCompanion = null
@@ -1590,7 +1599,7 @@ class StudyDatabase {
       growthEvent,
       illness,
       caravan,
-      bard: rollBardEncounter({ sessionId, activeSeconds, caravan }),
+      bard,
     }
     this.run(`INSERT INTO expeditions (session_id, tier_id, location, event_text, rewards_json, rare_found, companion_found_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -1927,10 +1936,10 @@ class StudyDatabase {
       grantBond(companion, 10)
       effect = `${companion.nickname || '伙伴'}收下了珍稀蜜色琥珀，羁绊 +10。`
     } else if (itemId === 'berry_bread') {
-      const active = this.one('SELECT * FROM companions WHERE is_active = 1')
-      if (!active) throw new Error('没有同行伙伴可以分享面包')
-      grantBond(active, 1)
-      effect = `${active.nickname || '伙伴'}把这份莓果面包记在了共同旅途中。`
+      const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : this.one('SELECT * FROM companions WHERE is_active = 1')
+      if (!companion || companion.is_ill) throw new Error('请靠近一位正在小屋里的伙伴，再分享这份面包')
+      grantBond(companion, 1)
+      effect = `${companion.nickname || '伙伴'}慢慢吃完了莓果旅行面包，羁绊 +1。`
     } else if (['river_stone', 'wind_hill_feather', 'dragon_scale', 'flame_scatter', 'rain_moss_vein', 'violet_mist_glass', 'gray_pattern_stone', 'cloud_shadow_grass'].includes(itemId)) {
       const companionKeepsakes = {
         river_stone: 'river_otter',
@@ -1945,6 +1954,8 @@ class StudyDatabase {
       const speciesId = companionKeepsakes[itemId]
       const companion = this.one('SELECT * FROM companions WHERE species_id = ?', [speciesId])
       if (!companion) throw new Error('这份礼物要等对应伙伴加入旅途后才能使用')
+      if (targetCompanionId && companion.id !== targetCompanionId) throw new Error('这份纪念物只属于眼前这位伙伴')
+      if (companion.is_ill) throw new Error(`${companion.nickname || '这位伙伴'}正在休养，等恢复后再收下这份纪念物吧`)
       grantBond(companion, 3)
       effect = `${companion.nickname || '伙伴'}收下了这份只属于它的旅途纪念，羁绊 +3。`
     } else if (itemId === 'moon_compass') {

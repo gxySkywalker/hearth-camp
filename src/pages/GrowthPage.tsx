@@ -79,10 +79,10 @@ export function GrowthPage() {
     evolution_path: stage === 2 ? selected.evolution_path : '',
   })) : []
 
-  const setAsHomeCompanion = async (id: string) => {
+  const prepareForExpedition = async (id: string) => {
     try {
       await window.growthArc.companions.setActive(id)
-      notify('它已经回到炉火小屋，等你下次推门回家。', 'success')
+      notify('它已经准备好，下一次会陪你一起出征。', 'success')
       await refresh()
     } catch (error) { notify(friendlyError(error), 'error') }
   }
@@ -141,7 +141,7 @@ export function GrowthPage() {
           {companions.owned.map((companion) => <button key={companion.id} onClick={() => setSelectedId(companion.id)} className={selected?.id === companion.id ? 'selected' : ''}>
             <PixelCompanion companion={companion} size="small" />
             <span><strong>{companion.nickname}</strong><small>{companion.stageName}</small></span>
-            {companion.is_ill ? <i title="正在休养">休养中</i> : companion.is_active ? <i title="正在炉火小屋等候">⌂</i> : null}
+            {companion.is_ill ? <i title="正在休养">休养中</i> : companion.is_active ? <i title="准备与你同行">⌂</i> : null}
           </button>)}
         </div>
         <p className="camp-v2-dex-note">尚未相遇的身影，不需要追赶。路走到那里时，自会听见新的脚步声。</p>
@@ -164,13 +164,13 @@ export function GrowthPage() {
           <div className="camp-v2-home-note"><span>⌂</span><p>{selected.personalityProfile.habit}。{isMossSprout ? '在小屋里，它也会安静看着窗边的光影移动。' : isNightLightCat ? '在小屋里，它不必说话，只把尾灯留在离你不远的地方。' : isDuskOwl ? '在小屋里，它把翅膀轻轻收好，停在离夜风不远的地方。' : isCloudRabbit ? '在小屋里，它把耳朵贴在晒暖的地板上，等一阵风穿过门缝。' : isEmberDrake ? '在小屋里，它把翼膜收好，鼻尖的一点暖气很快和屋里的风混在一起。' : '在小屋里，它把这当作一件不必解释的小事。'}</p></div>
 
           <div className="camp-v2-bond" aria-label={`羁绊 ${selected.bond_xp}`}>
-            <div><span>共同走过</span><strong>{selected.bond_xp} <small>/ {chapter.next}</small></strong></div>
+            <div><span>共同走过</span><strong>{selected.bond_xp} <small>{selected.stage >= 2 ? '· 已长成，仍在同行' : `/ ${chapter.next}`}</small></strong></div>
             <div className="camp-v2-bond-track"><i style={{ width: `${progress}%` }} /></div>
             <p>{chapter.note}</p>
           </div>
 
-          {!selected.is_active && !selected.is_ill && <button className="button button-primary" onClick={() => void setAsHomeCompanion(selected.id)}>让它在炉火小屋等候</button>}
-          {Boolean(selected.is_active) && <span className="camp-v2-home-mark">⌂ 正在炉火小屋等候你回来</span>}
+          {!selected.is_active && !selected.is_ill && <button className="button button-primary" onClick={() => void prepareForExpedition(selected.id)}>让它准备和我出征</button>}
+          {Boolean(selected.is_active) && <span className="camp-v2-home-mark">⌂ 已准备好，下一次与你同行</span>}
         </div>
       </article>}
     </section>
