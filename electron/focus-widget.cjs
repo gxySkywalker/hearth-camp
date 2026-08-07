@@ -24,6 +24,7 @@ function render() {
   content.textContent = snapshot.content || snapshot.taskTitle || '正在专注'
   state.textContent = snapshot.status === 'paused' ? '正在休息' : '正在专注'
   widget.dataset.status = snapshot.status === 'paused' ? 'paused' : 'running'
+  widget.dataset.theme = ['hearth', 'dark', 'light'].includes(snapshot.theme) ? snapshot.theme : 'hearth'
 }
 
 function setState(next) {

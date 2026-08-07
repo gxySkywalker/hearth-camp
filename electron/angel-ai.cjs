@@ -100,7 +100,7 @@ function resolveAngelAiConfig(settings = {}) {
   const model = provider === 'deepseek' && (!savedModel || DEPRECATED_DEEPSEEK_MODELS.has(savedModel))
     ? DEEPSEEK_DEFAULT_MODEL
     : (savedModel || 'gpt-5.6-luna')
-  const defaultBaseUrl = provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1'
+  const defaultBaseUrl = provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.openai.com/v1'
   // A provider's saved endpoint is only meaningful for the explicit custom
   // option. This prevents a stale custom URL from silently intercepting a
   // later DeepSeek/OpenAI connection test or letter request.
@@ -127,7 +127,7 @@ function extractAssistantText(payload) {
   return ''
 }
 
-async function generateAngelNarrative({ letter, apiKey, settings = {}, prompt, fetchImpl = fetch, timeoutMs = 30000 }) {
+async function generateAngelNarrative({ letter, apiKey, settings = {}, prompt, fetchImpl = fetch, timeoutMs = 120000 }) {
   if (!apiKey) return { success: false, status: 'skipped' }
   let fact
   try { fact = buildNarrativeFactEnvelope(letter) } catch (error) { return { success: false, status: 'failed', error: error.message } }

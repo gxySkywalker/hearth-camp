@@ -187,6 +187,18 @@ describe('AI configuration persistence', () => {
   })
 })
 
+describe('focus widget preference persistence', () => {
+  it('keeps the selected widget theme after settings are read again', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-widget-theme-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+
+    database.setSettings({ focus_widget_theme: 'dark' })
+
+    expect(database.getSettings().focus_widget_theme).toBe('dark')
+  })
+})
+
 describe('companion identity', () => {
   it('keeps a renamed companion, its profile, and its memories as the same friend', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'growth-arc-companion-name-'))

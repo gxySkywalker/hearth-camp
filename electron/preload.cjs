@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('growthArc', {
   observatory: {
     getDaily: (dateOrTimestamp) => invoke('observatory:get-daily', dateOrTimestamp),
     getWeekly: (dateOrTimestamp) => invoke('observatory:get-weekly', dateOrTimestamp),
+    getMonthly: (dateOrTimestamp) => invoke('observatory:get-monthly', dateOrTimestamp),
     getReview: (date) => invoke('observatory:get-review', date),
     saveReview: (data) => invoke('observatory:save-review', data),
   },

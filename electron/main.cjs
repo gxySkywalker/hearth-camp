@@ -29,10 +29,13 @@ function showWindow() {
 }
 
 function focusWidgetState() {
+  const savedTheme = database?.getSettings?.().focus_widget_theme
+  const theme = ['hearth', 'dark', 'light'].includes(savedTheme) ? savedTheme : 'hearth'
   const session = database?.getActiveSession()
-  if (!session) return { active: false }
+  if (!session) return { active: false, theme }
   return {
     active: true,
+    theme,
     status: session.status,
     content: session.content || session.task_title || '正在专注',
     taskTitle: session.task_title || '',
@@ -72,12 +75,12 @@ function syncFocusWidget({ show = false } = {}) {
 function createFocusWidget() {
   if (focusWidgetWindow && !focusWidgetWindow.isDestroyed()) return
   focusWidgetWindow = new BrowserWindow({
-    width: 560,
-    height: 94,
-    minWidth: 560,
-    maxWidth: 560,
-    minHeight: 94,
-    maxHeight: 94,
+    width: 620,
+    height: 108,
+    minWidth: 620,
+    maxWidth: 620,
+    minHeight: 108,
+    maxHeight: 108,
     frame: false,
     transparent: true,
     resizable: false,
@@ -258,7 +261,9 @@ function parseResponseText(response) {
 // ── Angel letter AI narrative ───────────────────────────────
 
 const ANGEL_PROMPT = fs.readFileSync(path.join(__dirname, 'prompts', 'angel-letter.txt'), 'utf-8')
-const ANGEL_PROMPT_VERSION = 5
+const ANGEL_PROMPT_VERSION = 7
+let aiNarrativeRun = null
+let aiNarrativeRerunRequested = false
 
 async function generateLetterNarrative(letter) {
   return generateAngelNarrative({
@@ -291,14 +296,47 @@ function promoteSuccessfulAiNarratives() {
   database.run("UPDATE letters SET body_source = 'ai' WHERE letter_type IN ('daily', 'weekly') AND ai_status = 'success' AND ai_body IS NOT NULL AND ai_body != ''")
 }
 
-async function ensureAiNarratives() {
+function recoverLatestStaleAiFailure() {
+  // Give only the latest unresolved daily and weekly letter one clean attempt
+  // after a prompt/request-pipeline upgrade. Historical templates stay frozen.
+  database.run(
+    `UPDATE letters SET ai_status = 'pending', ai_retry_count = 0
+     WHERE id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (PARTITION BY letter_type ORDER BY created_at DESC) AS row_number
+         FROM letters
+         WHERE letter_type IN ('daily', 'weekly') AND template_body IS NOT NULL AND template_body != ''
+       ) WHERE row_number = 1
+     ) AND ai_body IS NULL AND ai_status = 'failed' AND COALESCE(ai_prompt_version, 0) < ?`,
+    [ANGEL_PROMPT_VERSION],
+  )
+}
+
+function resetLatestPeriodicNarratives() {
+  database.run(
+    `UPDATE letters SET ai_status = 'pending', ai_retry_count = 0
+     WHERE id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (PARTITION BY letter_type ORDER BY created_at DESC) AS row_number
+         FROM letters WHERE letter_type IN ('daily', 'weekly') AND template_body IS NOT NULL AND template_body != ''
+       ) WHERE row_number = 1
+     ) AND ai_body IS NULL AND ai_status IN ('skipped', 'failed', 'quota_exceeded')`
+  )
+}
+
+async function runAiNarrativeQueue() {
   const MAX_RETRIES = 3
-  const GLOBAL_TIMEOUT = 60000 // 60s max for all letters
+  // A full daily/weekly letter is substantially slower than the short
+  // connection check on reasoning-capable providers. Give each request its
+  // own 60s window and keep the batch bounded without treating a valid but
+  // slower response as a broken key.
+  const GLOBAL_TIMEOUT = 260000
   const deadline = Date.now() + GLOBAL_TIMEOUT
   const summary = { considered: 0, polished: 0, failed: 0, skipped: 0 }
 
   migrateRetiredDeepSeekLetterModel()
   promoteSuccessfulAiNarratives()
+  recoverLatestStaleAiFailure()
 
   // Only process NEW letters (pending), not historical template letters.
   // Failed letters with retries remaining are also retried.
@@ -312,7 +350,13 @@ async function ensureAiNarratives() {
      AND letter_type IN ('daily', 'weekly')
      AND (ai_status IN ('pending', 'skipped')
        OR (ai_status = 'failed' AND COALESCE(ai_retry_count,0) < ?))
-     ORDER BY created_at DESC LIMIT 10`, [MAX_RETRIES]
+     AND id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (PARTITION BY letter_type ORDER BY created_at DESC) AS row_number
+         FROM letters WHERE letter_type IN ('daily', 'weekly') AND template_body IS NOT NULL AND template_body != ''
+       ) WHERE row_number = 1
+     )
+     ORDER BY created_at DESC LIMIT 2`, [MAX_RETRIES]
   )
   for (const letter of pending) {
     if (Date.now() > deadline) break // global timeout
@@ -333,13 +377,30 @@ async function ensureAiNarratives() {
       const newRetry = (letter.ai_retry_count || 0) + 1
       const finalStatus = newRetry >= MAX_RETRIES ? 'failed' : result.status
       database.run(
-        "UPDATE letters SET ai_status = ?, ai_retry_count = ? WHERE id = ?",
-        [finalStatus, newRetry, letter.id]
+        "UPDATE letters SET ai_status = ?, ai_retry_count = ?, ai_prompt_version = ? WHERE id = ?",
+        [finalStatus, newRetry, ANGEL_PROMPT_VERSION, letter.id]
       )
       summary.failed += 1
+      if (process.env.VITE_DEV_SERVER_URL) console.warn('[angel-ai] letter polish failed', { id: letter.id, type: letter.letter_type, status: result.status, error: result.error })
     }
   }
   return summary
+}
+
+function ensureAiNarratives() {
+  if (aiNarrativeRun) {
+    aiNarrativeRerunRequested = true
+    return aiNarrativeRun
+  }
+  aiNarrativeRun = (async () => {
+    let result
+    do {
+      aiNarrativeRerunRequested = false
+      result = await runAiNarrativeQueue()
+    } while (aiNarrativeRerunRequested)
+    return result
+  })().finally(() => { aiNarrativeRun = null })
+  return aiNarrativeRun
 }
 
 // ── Test letter: verify AI configuration works ──────────────
@@ -524,8 +585,9 @@ function registerHandlers() {
   handle('settings:get', () => ({ ...database.getSettings(), hasApiKey: Boolean(readApiKey()) }))
   handle('settings:set', (data) => {
     const result = database.setSettings(data)
+    if (data && Object.hasOwn(data, 'focus_widget_theme')) syncFocusWidget()
     if (data && ['api_provider', 'model', 'ai_base_url', 'proxy_url'].some((key) => Object.hasOwn(data, key))) {
-      database.run("UPDATE letters SET ai_status = 'pending', ai_retry_count = 0 WHERE ai_status IN ('skipped', 'failed', 'quota_exceeded')")
+      resetLatestPeriodicNarratives()
       ensureAiNarratives().catch(() => {})
     }
     return result
@@ -533,7 +595,7 @@ function registerHandlers() {
   handle('settings:has-api-key', () => Boolean(readApiKey()))
   handle('settings:set-api-key', (key) => {
     saveApiKey(key)
-    database.run("UPDATE letters SET ai_status = 'pending', ai_retry_count = 0 WHERE ai_status IN ('skipped', 'failed', 'quota_exceeded')")
+    resetLatestPeriodicNarratives()
     ensureAiNarratives().catch(() => {})
     return true
   })
@@ -561,9 +623,10 @@ function registerHandlers() {
       [period.periodStart, period.periodEnd],
     ).map(s => ({ id: s.id, title: s.content, activeSeconds: s.active_seconds, endedAt: s.ended_at, returnKind: d.getReturnKind(s.active_seconds), areaName: '', areaColor: '' }))
     const hourly = d.computeDailyHourly(database, period)
+    const naturalDayTotal = hourly.reduce((sum, seconds) => sum + seconds, 0)
     const review = database.getDailyReview(period.periodKey).review
     return {
-      period, stats: { totalActiveSeconds: stats.totalActiveSeconds, sessionCounts: stats.sessionCounts, completedTaskCount: stats.completedTaskCount, directionBreakdown: stats.directionBreakdown, longestSessionSeconds: stats.longestSessionSeconds },
+      period, stats: { totalActiveSeconds: naturalDayTotal, sessionCounts: stats.sessionCounts, completedTaskCount: stats.completedTaskCount, directionBreakdown: stats.directionBreakdown, longestSessionSeconds: stats.longestSessionSeconds },
       sessions, hourlyActiveSeconds: hourly, hourlyDistributionPrecision: 'exact',
       review: review ? { win: review.win || '', blocker: review.blocker || '', energy: review.energy, futureNote: review.tomorrow_task || '' } : null,
       currentSession: cur,
@@ -574,19 +637,57 @@ function registerHandlers() {
     const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
     const period = d.getWeeklyPeriod(now)
     const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
-    const dailyActiveSeconds = []
-    for (let i = 0; i < 7; i++) {
-      const ds = database.getCompletedStats(period.periodStart + i * 86400000, period.periodStart + (i + 1) * 86400000)
-      dailyActiveSeconds.push(ds.totalActiveSeconds)
-    }
+    const heatmap = d.computeWeeklyHeatmap(database, period)
+    const dailyActiveSeconds = heatmap.map(day => day.reduce((sum, seconds) => sum + seconds, 0))
     const prev = d.previousWeeklyPeriod(period.periodStart)
-    const prevStats = database.getCompletedStats(prev.periodStart, prev.periodEnd)
+    const previousHeatmap = d.computeWeeklyHeatmap(database, prev)
+    const previousPeriodTotalSeconds = previousHeatmap.flat().reduce((sum, seconds) => sum + seconds, 0)
     const tasks = database.all(
       "SELECT id, title FROM tasks WHERE status = 'done' AND completed_at >= ? AND completed_at < ? ORDER BY completed_at DESC LIMIT 10",
       [period.periodStart, period.periodEnd],
     )
-    const heatmap = d.computeWeeklyHeatmap(database, period)
-    return { period, stats: { totalActiveSeconds: stats.totalActiveSeconds, dailyActiveSeconds, sessionCounts: stats.sessionCounts, completedTaskCount: stats.completedTaskCount, directionBreakdown: stats.directionBreakdown, longestSessionSeconds: stats.longestSessionSeconds, previousPeriodTotalSeconds: prevStats.totalActiveSeconds }, representativeTasks: tasks, hourlyActiveSecondsByDay: heatmap, hourlyDistributionPrecision: 'exact' }
+    const totalActiveSeconds = dailyActiveSeconds.reduce((sum, seconds) => sum + seconds, 0)
+    return { period, stats: { totalActiveSeconds, dailyActiveSeconds, sessionCounts: stats.sessionCounts, completedTaskCount: stats.completedTaskCount, directionBreakdown: stats.directionBreakdown, longestSessionSeconds: stats.longestSessionSeconds, previousPeriodTotalSeconds }, representativeTasks: tasks, hourlyActiveSecondsByDay: heatmap, hourlyDistributionPrecision: 'exact' }
+  })
+  handle('observatory:get-monthly', (dateOrTimestamp) => {
+    const d = require('./domain.cjs')
+    const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
+    const period = d.getMonthlyPeriod(now)
+    const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
+    const dailyActiveSeconds = []
+    for (let cursor = new Date(period.periodStart); cursor.getTime() < period.periodEnd; cursor.setDate(cursor.getDate() + 1)) {
+      const dayStart = cursor.getTime()
+      const dayEndDate = new Date(dayStart)
+      dayEndDate.setDate(dayEndDate.getDate() + 1)
+      const hourly = d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
+      dailyActiveSeconds.push(hourly.reduce((sum, seconds) => sum + seconds, 0))
+    }
+    const previousCursor = new Date(period.periodStart)
+    previousCursor.setMonth(previousCursor.getMonth() - 1)
+    const previousPeriod = d.getMonthlyPeriod(previousCursor.getTime())
+    let previousPeriodTotalSeconds = 0
+    for (let cursor = new Date(previousPeriod.periodStart); cursor.getTime() < previousPeriod.periodEnd; cursor.setDate(cursor.getDate() + 1)) {
+      const dayStart = cursor.getTime()
+      const dayEndDate = new Date(dayStart)
+      dayEndDate.setDate(dayEndDate.getDate() + 1)
+      previousPeriodTotalSeconds += d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
+        .reduce((sum, seconds) => sum + seconds, 0)
+    }
+    const totalActiveSeconds = dailyActiveSeconds.reduce((sum, seconds) => sum + seconds, 0)
+    return {
+      period,
+      stats: {
+        totalActiveSeconds,
+        dailyActiveSeconds,
+        activeDays: dailyActiveSeconds.filter(seconds => seconds > 0).length,
+        longestDaySeconds: Math.max(0, ...dailyActiveSeconds),
+        previousPeriodTotalSeconds,
+        sessionCounts: stats.sessionCounts,
+        completedTaskCount: stats.completedTaskCount,
+        directionBreakdown: stats.directionBreakdown,
+        longestSessionSeconds: stats.longestSessionSeconds,
+      },
+    }
   })
   handle('observatory:get-review', (date) => {
     const d = database.getDailyReview(date)
@@ -595,11 +696,14 @@ function registerHandlers() {
   handle('observatory:save-review', (data) => database.saveDailyReview(data))
   handle('mail:list', (opts) => {
     const letters = database.listLetters(opts)
-    return letters.map(l => ({
-      id: l.id, letterType: l.letter_type, periodKey: l.period_key, periodStart: l.period_start, periodEnd: l.period_end,
-      subject: l.subject, bodyPreview: (l.template_body || '').slice(0, 80) + ((l.template_body || '').length > 80 ? '…' : ''),
-      isRead: l.is_read === 1, readAt: l.read_at, createdAt: l.created_at,
-    }))
+    return letters.map(l => {
+      const visibleBody = l.body_source === 'ai' && l.ai_body ? l.ai_body : l.template_body || ''
+      return {
+        id: l.id, letterType: l.letter_type, periodKey: l.period_key, periodStart: l.period_start, periodEnd: l.period_end,
+        subject: l.subject, bodyPreview: visibleBody.slice(0, 80) + (visibleBody.length > 80 ? '…' : ''),
+        isRead: l.is_read === 1, readAt: l.read_at, createdAt: l.created_at,
+      }
+    })
   })
   handle('mail:get', (id) => {
     const l = database.getLetterById(id)

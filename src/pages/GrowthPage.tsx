@@ -17,6 +17,7 @@ const formatDay = (timestamp?: number | null) => timestamp
   : null
 
 const daysTogether = (timestamp: number) => Math.max(1, Math.floor((Date.now() - timestamp) / 86_400_000) + 1)
+const CAMP_BACKPACK_PAGE_SIZE = 6
 
 const bondChapter = (companion: Companion) => {
   if (companion.stage >= 2) return { name: '长成', range: '200+', note: '它已经以那一刻的天光，长成了更完整的自己。', next: 200 }
@@ -57,11 +58,19 @@ export function GrowthPage() {
   const [itemToUse, setItemToUse] = useState<InventoryEntry | null>(null)
   const [itemTargetId, setItemTargetId] = useState('')
   const [usingItem, setUsingItem] = useState(false)
+  const [backpackPage, setBackpackPage] = useState(0)
   useEffect(() => {
     if (dashboard?.world.pendingGrowthEvent) setPendingGrowth(dashboard.world.pendingGrowthEvent)
   }, [dashboard?.world.pendingGrowthEvent])
+  useEffect(() => {
+    const count = dashboard?.world.inventory.length || 0
+    const lastPage = Math.max(0, Math.ceil(count / CAMP_BACKPACK_PAGE_SIZE) - 1)
+    setBackpackPage((page) => Math.min(page, lastPage))
+  }, [dashboard?.world.inventory.length])
   if (!dashboard) return null
   const { companions, inventory } = dashboard.world
+  const backpackPageCount = Math.max(1, Math.ceil(inventory.length / CAMP_BACKPACK_PAGE_SIZE))
+  const visibleInventory = inventory.slice(backpackPage * CAMP_BACKPACK_PAGE_SIZE, (backpackPage + 1) * CAMP_BACKPACK_PAGE_SIZE)
   const selected = companions.owned.find((item) => item.id === selectedId) || companions.active || companions.owned[0] || null
   const selectedPortrait = selected ? getCompanionCampPortrait(selected) : null
   const chapter = selected ? bondChapter(selected) : null
@@ -209,14 +218,16 @@ export function GrowthPage() {
         <header><div><span className="card-sigil">◇</span><div><small>伙伴图鉴</small><h2>仍在世界各处生活的朋友</h2></div></div></header>
         <div className="catalog-grid">{companions.catalog.map((species) => {
           const companion = companions.owned.find((item) => item.species_id === species.id)
+          const initialForm = companion ? { ...companion, stage: 0, stageName: species.stages[0], evolution_path: '' } : null
           return <div className={species.discovered ? 'discovered' : 'unknown'} key={species.id}>
-            <span className="catalog-companion-icon">{companion ? <PixelCompanion companion={companion} size="small" /> : '?'}</span><strong>{species.discovered ? species.name : '尚未相遇'}</strong><small>{species.discovered ? species.kind : '也许会在某段旅途里留下踪迹'}</small>
+            <span className="catalog-companion-icon">{initialForm ? <PixelCompanion companion={initialForm} size="small" /> : '?'}</span><strong>{species.discovered ? species.stages[0] : '尚未相遇'}</strong><small>{species.discovered ? species.kind : '也许会在某段旅途里留下踪迹'}</small>
           </div>
         })}</div>
       </article>
       <article className="parchment-card backpack-card">
         <header><div><span className="card-sigil">▣</span><div><small>共同背包</small><h2>带回小屋的东西</h2></div></div><span className="soft-count">{inventory.reduce((sum, entry) => sum + Number(entry.quantity), 0)} 件</span></header>
-        <div>{inventory.slice(0, 8).map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回的物品会好好收在这里。</p>}</div>
+        <div>{visibleInventory.map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回的物品会好好收在这里。</p>}</div>
+        {inventory.length > CAMP_BACKPACK_PAGE_SIZE && <nav className="camp-v2-backpack-pages" aria-label="共同背包翻页"><button disabled={backpackPage === 0} onClick={() => setBackpackPage((page) => Math.max(0, page - 1))}>‹ 上一页</button><span><b>{String(backpackPage + 1).padStart(2, '0')}</b> / {String(backpackPageCount).padStart(2, '0')}</span><button disabled={backpackPage >= backpackPageCount - 1} onClick={() => setBackpackPage((page) => Math.min(backpackPageCount - 1, page + 1))}>下一页 ›</button></nav>}
       </article>
     </section>
 

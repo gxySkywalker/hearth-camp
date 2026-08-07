@@ -924,7 +924,7 @@ class StudyDatabase {
   setSettings(values) {
     this.transaction(() => {
       for (const [key, value] of Object.entries(values)) {
-        if (!['user_name', 'model', 'theme', 'accent', 'world_name', 'birthday', 'proxy_url', 'ai_base_url', 'api_provider'].includes(key)) continue
+        if (!['user_name', 'model', 'theme', 'accent', 'world_name', 'birthday', 'proxy_url', 'ai_base_url', 'api_provider', 'focus_widget_theme'].includes(key)) continue
         this.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)], false)
       }
     })
@@ -1334,7 +1334,7 @@ class StudyDatabase {
       : this.one('SELECT * FROM companions WHERE is_active = 1 ORDER BY met_at LIMIT 1')
     if (companionId && !companion) throw new Error('同行伙伴不存在')
     if (companion?.is_ill) throw new Error(`${companion.nickname || '这位伙伴'}正在小屋里休养，今天不能出征`)
-    const plannedSeconds = Math.max(5, Math.min(90, Number(plannedMinutes) || 25)) * 60
+    const plannedSeconds = Math.max(1, Math.min(180, Math.round(Number(plannedMinutes) || 25))) * 60
     const id = crypto.randomUUID()
     const intervalId = crypto.randomUUID()
     const now = Date.now()

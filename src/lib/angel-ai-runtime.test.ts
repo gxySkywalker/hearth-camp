@@ -42,7 +42,7 @@ describe('angel AI runtime', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '我已经收好。' } }] }) })
     const result = await generateAngelNarrative({ letter, apiKey: 'key', prompt, fetchImpl, settings: { api_provider: 'deepseek', model: 'deepseek-chat' } })
     expect(result).toMatchObject({ success: true, status: 'success', provider: 'deepseek', model: 'deepseek-v4-flash' })
-    expect(fetchImpl).toHaveBeenCalledWith('https://api.deepseek.com/v1/chat/completions', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer key' }) }))
+    expect(fetchImpl).toHaveBeenCalledWith('https://api.deepseek.com/chat/completions', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer key' }) }))
     const system = JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content
     const request = JSON.parse(fetchImpl.mock.calls[0][1].body)
     expect(request.max_tokens).toBe(900)
@@ -143,7 +143,7 @@ describe('angel AI runtime', () => {
 
   it('uses a provider default URL instead of a stale custom endpoint', () => {
     expect(resolveAngelAiConfig({ api_provider: 'deepseek', model: 'deepseek-chat', ai_base_url: 'https://old-proxy.example/v1' }))
-      .toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash', baseUrl: 'https://api.deepseek.com/v1' })
+      .toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash', baseUrl: 'https://api.deepseek.com' })
   })
 
   it.each(['daily', 'weekly'])('can polish each eligible %s letter with the configured provider', async (letterType) => {

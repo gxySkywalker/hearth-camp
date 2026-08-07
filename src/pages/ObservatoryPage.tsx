@@ -7,12 +7,20 @@ const DEV = (import.meta as any).env?.DEV
 import { buildWeeklyObservationSummary, dailySummaryNote } from '../lib/observatoryInsights'
 import { Icon } from '../components/Icon'
 import { ObsChart } from '../components/ObsChart'
-import { hourlyOption, weeklyBarsOption, heatmapOption } from '../lib/observatoryCharts'
+import { hourlyOption, weeklyBarsOption, heatmapOption, monthlyBarsOption } from '../lib/observatoryCharts'
 import { playUISound } from '../lib/audio'
-import type { DailyObservatoryData, WeeklyObservatoryData, NavState, NavAction } from '../types'
+import type { DailyObservatoryData, WeeklyObservatoryData, MonthlyObservatoryData, NavState, NavAction } from '../types'
 
 const DAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const ENERGY_LABELS = ['', '较低', '偏低', '平稳', '不错', '很好']
+type ObservatoryTab = 'daily' | 'weekly' | 'monthly'
+
+function shiftMonth(timestamp: number, delta: number) {
+  const d = new Date(timestamp)
+  d.setDate(1)
+  d.setMonth(d.getMonth() + delta)
+  return d.getTime()
+}
 
 interface ObsNavTarget { periodType: 'daily' | 'weekly'; periodStart: string; periodEnd: string }
 
@@ -22,14 +30,15 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
   navState: NavState
   dispatch: (action: NavAction) => void
   actionsRef: React.MutableRefObject<{
-    obsTabIndex: number; obsSetTab: (tab: 'daily' | 'weekly') => void
+    obsTabIndex: number; obsSetTab: (tab: ObservatoryTab) => void
     obsPrevDate: () => void; obsNextDate: () => void
   }>
 }) {
   const { notify } = useApp()
-  const [tab, setTab] = useState<'daily' | 'weekly'>(obsNavTarget?.periodType || 'daily')
+  const [tab, setTab] = useState<ObservatoryTab>(obsNavTarget?.periodType || 'daily')
   const [daily, setDaily] = useState<DailyObservatoryData | null>(null)
   const [weekly, setWeekly] = useState<WeeklyObservatoryData | null>(null)
+  const [monthly, setMonthly] = useState<MonthlyObservatoryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [cursor, setCursor] = useState(() => {
     if (obsNavTarget) { return new Date(obsNavTarget.periodStart + 'T00:00:00').getTime() }
@@ -63,11 +72,20 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
           setReviewFutureNote(d.review.futureNote || '')
           reviewLoaded.current = true
         }
-      } else {
+      } else if (tab === 'weekly') {
         const w = await window.growthArc.observatory.getWeekly(ts)
         if (latestRequest.current !== requestId) return
         if (DEV) console.log('[obs] cursor', ts, '→ raw weekly', w)
         setWeekly(w)
+        if (!reviewLoaded.current) {
+          setReviewWin(''); setReviewEnergy(null); setReviewBlocker(''); setReviewFutureNote('')
+          reviewLoaded.current = true
+        }
+      } else {
+        const m = await window.growthArc.observatory.getMonthly(ts)
+        if (latestRequest.current !== requestId) return
+        if (DEV) console.log('[obs] cursor', ts, '→ raw monthly', m)
+        setMonthly(m)
         if (!reviewLoaded.current) {
           setReviewWin(''); setReviewEnergy(null); setReviewBlocker(''); setReviewFutureNote('')
           reviewLoaded.current = true
@@ -116,15 +134,16 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
   tabRef.current = tab
 
   actionsRef.current = {
-    obsTabIndex: tab === 'daily' ? 0 : 1,
-    obsSetTab: (t: 'daily' | 'weekly') => { setTab(t); dispatch({ type: 'SET_OBS_FOCUS', index: t === 'daily' ? 0 : 1 }) },
+    obsTabIndex: tab === 'daily' ? 0 : tab === 'weekly' ? 1 : 2,
+    obsSetTab: (t: ObservatoryTab) => { setTab(t); dispatch({ type: 'SET_OBS_FOCUS', index: t === 'daily' ? 0 : t === 'weekly' ? 1 : 2 }) },
     obsPrevDate: () => {
-      const step = tabRef.current === 'daily' ? 86400000 : 7 * 86400000
-      nav(cursorRef.current - step)
+      if (tabRef.current === 'monthly') nav(shiftMonth(cursorRef.current, -1))
+      else nav(cursorRef.current - (tabRef.current === 'daily' ? 86400000 : 7 * 86400000))
     },
     obsNextDate: () => {
-      const step = tabRef.current === 'daily' ? 86400000 : 7 * 86400000
-      const n = cursorRef.current + step
+      const n = tabRef.current === 'monthly'
+        ? shiftMonth(cursorRef.current, 1)
+        : cursorRef.current + (tabRef.current === 'daily' ? 86400000 : 7 * 86400000)
       if (n <= Date.now()) nav(n)
     },
   }
@@ -139,6 +158,11 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
     const cur = new Date(cursor); cur.setHours(0,0,0,0)
     const curDay = cur.getDay(); cur.setDate(cur.getDate() - (curDay === 0 ? 6 : curDay - 1))
     return cur.getTime() === monTs
+  })()
+  const isCurrentMonth = (() => {
+    const now = new Date()
+    const current = new Date(cursor)
+    return now.getFullYear() === current.getFullYear() && now.getMonth() === current.getMonth()
   })()
 
   // ── All hooks must stay above every early return ──────────
@@ -172,6 +196,16 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
     return heatmapOption(grid, todayIdx)
   }, [weekly, todayIdx])
 
+  const monthlyChartOption = useMemo(() => {
+    if (!monthly) return null
+    const bars = monthly.stats.dailyActiveSeconds ?? []
+    if (!bars.some(seconds => seconds > 0)) return null
+    const date = new Date(monthly.period.periodStart)
+    const now = new Date()
+    const todayDate = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() ? now.getDate() : -1
+    return monthlyBarsOption([...bars], date.getFullYear(), date.getMonth() + 1, todayDate)
+  }, [monthly])
+
   const dailyNote = useMemo(() => {
     if (!daily) return null
     return dailySummaryNote({ hourlyActiveSeconds: daily.hourlyActiveSeconds ?? [], directionBreakdown: daily.stats.directionBreakdown, totalActiveSeconds: daily.stats.totalActiveSeconds })
@@ -193,6 +227,7 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
             <span className="obs-hero-label">OBSERVATORY · 天文台</span>
             {tab === 'daily' && daily && <h1>{formatPeriodRange(daily.period, 'daily')}</h1>}
             {tab === 'weekly' && weekly && <h1>{formatPeriodRange(weekly.period, 'weekly')}</h1>}
+            {tab === 'monthly' && monthly && <h1>{new Date(monthly.period.periodStart).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })}</h1>}
           </div>
           <div className="obs-hero-tabs">
             <button
@@ -205,6 +240,11 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
               onClick={() => { playUISound('select'); setTab('weekly'); dispatch({ type: 'SET_OBS_FOCUS', index: 1 }) }}
               aria-label="本周星图"
             ><Icon name="star" size={14} /> 本周星图</button>
+            <button
+              className={`${tab === 'monthly' ? 'active' : ''} ${isActive && navState.obsFocusIndex === 2 ? 'kb-focused' : ''}`}
+              onClick={() => { playUISound('select'); setTab('monthly'); dispatch({ type: 'SET_OBS_FOCUS', index: 2 }) }}
+              aria-label="本月星向"
+            ><Icon name="wave" size={14} /> 本月星向</button>
           </div>
         </div>
         {tab === 'daily' && daily && (
@@ -245,18 +285,32 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
             </div>
           </div>
         )}
+        {tab === 'monthly' && monthly && (
+          <div className="obs-hero-stats">
+            <div>
+              <span className="obs-hero-big">{formatPixelDuration(monthly.stats.totalActiveSeconds).map((p, i) => p.isNumber ? <span key={i} className="pixel-num">{p.text}</span> : <span key={i}>{p.text}</span>)}</span>
+              <span className="obs-hero-desc">这个月汇成的星轨</span>
+            </div>
+            <div className="obs-hero-detail">
+              <span className="obs-hero-sub">留下足迹 {monthly.stats.activeDays} 天 · 最长一天 {formatDuration(monthly.stats.longestDaySeconds)}</span>
+              <span className="obs-hero-trend"><Icon name="wave" size={12} /> {getTrendText(monthly.stats.totalActiveSeconds, monthly.stats.previousPeriodTotalSeconds)}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
 
     <div className="obs-nav">
-      <button className="obs-nav-btn" onClick={() => { playUISound('select'); const step = tab === 'daily' ? 86400000 : 7 * 86400000; nav(cursor - step) }} aria-label="上一个">‹</button>
+      <button className="obs-nav-btn" onClick={() => { playUISound('select'); nav(tab === 'monthly' ? shiftMonth(cursor, -1) : cursor - (tab === 'daily' ? 86400000 : 7 * 86400000)) }} aria-label="上一个">‹</button>
       <span className="obs-nav-label">
         {tab === 'daily' && daily ? formatDailyNavLabel(daily.period) : ''}
         {tab === 'weekly' && weekly ? formatWeeklyNavLabel(weekly.period) : ''}
+        {tab === 'monthly' && monthly ? new Date(monthly.period.periodStart).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' }) : ''}
       </span>
-      <button className="obs-nav-btn" onClick={() => { playUISound('select'); const n = tab === 'daily' ? cursor + 86400000 : cursor + 7 * 86400000; if (n <= Date.now()) nav(n) }} disabled={tab === 'daily' ? cursor + 86400000 > Date.now() : cursor + 7 * 86400000 > Date.now()} aria-label="下一个">›</button>
+      <button className="obs-nav-btn" onClick={() => { playUISound('select'); const n = tab === 'monthly' ? shiftMonth(cursor, 1) : cursor + (tab === 'daily' ? 86400000 : 7 * 86400000); if (n <= Date.now()) nav(n) }} disabled={tab === 'monthly' ? shiftMonth(cursor, 1) > Date.now() : tab === 'daily' ? cursor + 86400000 > Date.now() : cursor + 7 * 86400000 > Date.now()} aria-label="下一个">›</button>
       {!isToday && tab === 'daily' ? <button className="obs-nav-today" onClick={() => { playUISound('select'); goToday() }}>回到今天</button> : null}
       {!isCurrentWeek && tab === 'weekly' ? <button className="obs-nav-today" onClick={() => { playUISound('select'); goToday() }}>回到本周</button> : null}
+      {!isCurrentMonth && tab === 'monthly' ? <button className="obs-nav-today" onClick={() => { playUISound('select'); goToday() }}>回到本月</button> : null}
     </div>
 
     {/* ── Daily view ─────────────────────────────────────── */}
@@ -385,6 +439,35 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
         </section>
       </div>
       <div className="obs-herald"><span className="obs-herald-icon">✦</span><span>周信会在本周结束后送达</span></div>
+    </>}
+
+    {/* ── Monthly view ───────────────────────────────────── */}
+    {tab === 'monthly' && monthly && <>
+      <section className="panel obs-panel-wood">
+        <h2 className="obs-panel-title">月度星柱</h2>
+        <div key={`m-${cursor}`} style={{ height: 280, background: '#283342' }}>
+          <ObsChart option={monthlyChartOption} empty={!monthlyChartOption} emptyText="这个月的星图还在等待第一束光。" />
+        </div>
+        <div className="obs-heat-desc">纵轴记录真实专注时长，横轴记录这个月的每一天。</div>
+      </section>
+      <div className="obs-grid-2">
+        <section className="panel obs-panel-paper">
+          <h2 className="obs-panel-title">月度足迹</h2>
+          <div className="obs-weekly-stats">
+            <div className="obs-ws-row"><span>有星轨的日子</span><span>{monthly.stats.activeDays} 天</span></div>
+            <div className="obs-ws-row"><span>最长的一天</span><span>{formatDuration(monthly.stats.longestDaySeconds)}</span></div>
+            <div className="obs-ws-row"><span>最长远征</span><span>{formatDuration(monthly.stats.longestSessionSeconds)}</span></div>
+            <div className="obs-ws-row"><span>完成路标</span><span>{monthly.stats.completedTaskCount}</span></div>
+          </div>
+        </section>
+        <section className="panel obs-panel-paper">
+          <h2 className="obs-panel-title">旅途方向</h2>
+          {monthly.stats.directionBreakdown.length > 0 ? <div className="obs-direction-list">{monthly.stats.directionBreakdown.map(direction => {
+            const pct = monthly.stats.totalActiveSeconds > 0 ? Math.round(direction.seconds / monthly.stats.totalActiveSeconds * 100) : 0
+            return <div key={direction.id} className="obs-direction-row"><span className="obs-dir-name"><i style={{ background: direction.color || '#8b7355' }} />{direction.name || '未分类'}</span><span className="obs-dir-track"><span className="obs-dir-fill" style={{ width: `${Math.max(2, pct)}%` }} /></span><span className="obs-dir-time">{formatDuration(direction.seconds)}</span></div>
+          })}</div> : <div className="obs-empty">暂无方向记录。</div>}
+        </section>
+      </div>
     </>}
   </div>
 }

@@ -10,8 +10,8 @@ const LOOP_SOUNDS: Record<LoopSound, { src: string; volume: number }> = {
   // Vite's development server but resolves to file:///audio/... in packaged
   // Electron, where the files cannot be found.
   hearth: { src: 'audio/fire.wav', volume: 0.12 },
-  footstepWood: { src: 'audio/footstep-wood.wav', volume: 0.11 },
-  footstepRug: { src: 'audio/footstep-rug.wav', volume: 0.09 },
+  footstepWood: { src: 'audio/footstep-wood.wav', volume: 0.22 },
+  footstepRug: { src: 'audio/footstep-rug.wav', volume: 0.2 },
 }
 
 const ONE_SHOT_SOUNDS = {

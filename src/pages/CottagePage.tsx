@@ -41,7 +41,7 @@ function CottageBackpackItem({ entry, onUse }: { entry: any; onUse: (entry: any)
 }
 
 export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void }) {
-  const { dashboard, notify, refresh } = useApp()
+  const { dashboard, activeSession, notify, refresh } = useApp()
   if (!dashboard) return null
   const { today, world } = dashboard
   // This is intentionally a room-only choice. It changes who walks beside the
@@ -56,6 +56,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
     : world.companions.owned.find((item) => !item.is_ill)) || null
   const [clockNow, setClockNow] = useState(() => Date.now())
   const [hearthLit, setHearthLit] = useState(false)
+  const [expeditionLayerActive, setExpeditionLayerActive] = useState(Boolean(activeSession))
   const [hearthOpen, setHearthOpen] = useState(false)
   const [hearthBusy, setHearthBusy] = useState(false)
   const [poetryOpen, setPoetryOpen] = useState(false)
@@ -83,9 +84,18 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
   }, [])
   useEffect(() => { window.growthArc.hearth.get().then((state) => setHearthLit(state.lit)).catch(() => {}) }, [])
   useEffect(() => {
-    setHearthFireSound(effectiveHearthLit)
+    const onExpeditionLayer = (event: Event) => {
+      setExpeditionLayerActive(Boolean((event as CustomEvent<boolean>).detail))
+    }
+    window.addEventListener('growtharc:expedition-layer', onExpeditionLayer)
+    return () => window.removeEventListener('growtharc:expedition-layer', onExpeditionLayer)
+  }, [])
+  useEffect(() => {
+    // The cottage remains mounted behind the full-screen expedition layer.
+    // Explicitly silence its ambience until the full settlement chain closes.
+    setHearthFireSound(effectiveHearthLit && !activeSession && !expeditionLayerActive)
     return () => setHearthFireSound(false)
-  }, [effectiveHearthLit])
+  }, [effectiveHearthLit, activeSession, expeditionLayerActive])
 
   const [talkingCompanion, setTalkingCompanion] = useState<Companion | null>(null)
   const dialogueCompanion = talkingCompanion || companion
@@ -133,6 +143,24 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
     window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.pixi-cottage-scene')?.focus())
   }, [])
   const closeOverlay = useCallback((setOpen: (value: boolean) => void) => { setOpen(false); resumeWorld() }, [resumeWorld])
+  useEffect(() => {
+    if (!poetryOpen && !backpackOpen && !itemToUse && !mapSynthesisOpen) return
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.repeat) return
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      playUISound('select')
+      // Close the uppermost backpack action first; a second Escape then closes
+      // the backpack itself. This avoids leaking the key to global navigation.
+      if (itemToUse && !usingItem) { setItemToUse(null); return }
+      if (mapSynthesisOpen && !usingItem) { closeOverlay(setMapSynthesisOpen); return }
+      if (poetryOpen) { closeOverlay(setPoetryOpen); return }
+      if (backpackOpen) closeOverlay(setBackpackOpen)
+    }
+    window.addEventListener('keydown', onEscape, true)
+    return () => window.removeEventListener('keydown', onEscape, true)
+  }, [backpackOpen, closeOverlay, itemToUse, mapSynthesisOpen, poetryOpen, usingItem])
   const openDialogue = useCallback((target: Companion) => {
     setTalkingCompanion(target)
     setMessageIndex(0)
@@ -322,7 +350,18 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         <div className="hearth-recipes"><article><span>♨</span><div><strong>山草药汤</strong><small>山野药草束 {inventoryCount('herb_bundle')} / 10</small><p>供正在休养的伙伴饮用，康复并获得羁绊 +5。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('herb_bundle') < 10} onClick={() => void craftAtHearth('herbal_soup')}>熬制</button></article><article><span>◇</span><div><strong>珍稀蜜色琥珀</strong><small>蜜色琥珀碎片 {inventoryCount('amber_chip')} / 10</small><p>送给伙伴后，羁绊 +10。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('amber_chip') < 10} onClick={() => void craftAtHearth('honey_amber')}>锻造</button></article></div>
         <footer className="modal-footer"><button className="button button-ghost" onClick={() => closeOverlay(setHearthOpen)}>离开炉边</button>{!isNight && <button className="button button-primary" disabled={hearthBusy} onClick={() => void setFire(!hearthLit)}>{hearthLit ? '熄灭炉火' : '点燃炉火'}</button>}</footer>
       </Modal>}
-      {poetryOpen && <Modal title={`吟游诗集 · ${poems.length} / 20`} onClose={() => closeOverlay(setPoetryOpen)} size="wide" className="poetry-modal"><div className="poetry-shelf">{poems.length === 0 ? <p>书页还空着。暮色商队离开后，也许会有吟游诗人送来第一首诗。</p> : poems.map((entry) => <article key={entry.id}><small>{new Intl.DateTimeFormat('zh-CN', { year:'numeric', month:'long', day:'numeric' }).format(entry.obtained_at)}</small><pre>{entry.poem?.text}</pre><strong>{entry.poem?.source}</strong><p>{entry.poem?.encouragement}</p></article>)}</div><footer className="modal-footer"><button className="button button-primary" onClick={() => closeOverlay(setPoetryOpen)}>合上诗集</button></footer></Modal>}
+      {poetryOpen && <Modal title={`吟游诗集 · ${poems.length} / 40`} onClose={() => closeOverlay(setPoetryOpen)} size="wide" className="poetry-modal">
+        <div className="poetry-book-intro"><span>♪</span><div><small>THE WANDERING VERSES</small><strong>旅途中收到的诗，都在这里慢慢成册。</strong><p>每一页记着相遇的日子，也留着那位吟游诗人当时想送给你的话。</p></div><b>{String(poems.length).padStart(2, '0')}<i>/40</i></b></div>
+        <div className="poetry-shelf">{poems.length === 0 ? <div className="poetry-empty"><span>◇</span><strong>诗集还没有写下第一页</strong><p>远征归来时，也许会在路边遇见愿意赠诗的吟游诗人。</p></div> : poems.map((entry, index) => <article key={entry.id}>
+          <header><span>第 {String(poems.length - index).padStart(2, '0')} 页</span><time>{new Intl.DateTimeFormat('zh-CN', { year:'numeric', month:'long', day:'numeric' }).format(entry.obtained_at)}</time></header>
+          <div className="poetry-verse-mark">“</div>
+          <pre className="poetry-original">{entry.poem?.original || entry.poem?.text}</pre>
+          {entry.poem?.translation && <pre className="poetry-translation">{entry.poem.translation}</pre>}
+          <strong className="poetry-source">— {entry.poem?.source}{entry.poem?.translationCredit ? ` · ${entry.poem.translationCredit}` : ''}</strong>
+          <p className="poetry-encouragement">{entry.poem?.encouragement}</p>
+        </article>)}</div>
+        <footer className="modal-footer"><button className="button button-primary" onClick={() => closeOverlay(setPoetryOpen)}>合上诗集</button></footer>
+      </Modal>}
       {backpackOpen && <Modal title={`小屋背包 · ${world.inventory.reduce((sum, entry) => sum + Number(entry.quantity), 0)} 件`} onClose={() => closeOverlay(setBackpackOpen)} size="wide" className="cottage-backpack-modal"><div className="cottage-backpack-grid">{world.inventory.map((entry) => <CottageBackpackItem key={entry.item_id} entry={entry} onUse={requestUse} />)}{world.inventory.length === 0 && <p>背包还很轻。下一次远征，会有新的东西被带回小屋。</p>}</div><footer className="modal-footer"><button className="button button-primary" onClick={() => closeOverlay(setBackpackOpen)}>收好背包</button></footer></Modal>}
       {mapSynthesisOpen && <Modal title={unlockedMapLocation ? '新的地点已绘入地图' : '拼合手绘地图'} onClose={() => !usingItem && closeOverlay(setMapSynthesisOpen)} className="map-synthesis-modal">
         {unlockedMapLocation ? <div className="map-synthesis-reveal"><span className="map-synthesis-icon"><Icon name="map" size={34} /></span><small>新的远征地点</small><h3>{unlockedMapLocation}</h3><p>碎片间的道路终于连成一线。下次正式远征时，它会和原有地点一起出现在可抵达的边境地图中。</p></div> : <div className="map-synthesis-panel"><span className="map-synthesis-icon"><Icon name="map" size={30} /></span><div><small>尚未绘入地图的路</small><h3>手绘地图碎片</h3><p>把十张碎片铺开，缺失的地貌会慢慢在纸上显现。</p></div><strong className="map-synthesis-count">{inventoryCount('map_scrap')} <i>/ 10</i></strong><div className="map-synthesis-fragments" aria-label={`已有 ${inventoryCount('map_scrap')} 张地图碎片`}>{Array.from({ length: 10 }, (_, index) => <span key={index} className={index < inventoryCount('map_scrap') ? 'is-filled' : ''}>◇</span>)}</div></div>}

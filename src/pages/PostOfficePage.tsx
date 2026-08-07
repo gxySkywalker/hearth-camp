@@ -156,6 +156,41 @@ export function PostOfficePage({ onNavigate, navState, dispatch, actionsRef }: P
     return () => { cancelled = true }
   }, [])
 
+  // A letter can be opened while its optional AI narration is still running
+  // in Electron. Refresh that one cached detail until the worker finishes, so
+  // the completed narration replaces the fallback without asking the player
+  // to leave the post office or restart the app.
+  useEffect(() => {
+    if (!selectedId) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+    const poll = async () => {
+      try {
+        const detail = await window.growthArc.mail.get(selectedId)
+        if (cancelled) return
+        const previous = detailCache.current.get(selectedId)
+        detailCache.current.set(selectedId, {
+          body: detail.body,
+          factSummary: detail.factSummary,
+          replyText: detail.replyText,
+          aiStatus: detail.aiStatus,
+        })
+        if (!previous || previous.body !== detail.body || previous.aiStatus !== detail.aiStatus) {
+          refreshLetterDetail((revision) => revision + 1)
+        }
+        attempts += 1
+        if ((detail.aiStatus === 'pending' || detail.aiStatus === 'skipped') && attempts < 30) {
+          timer = setTimeout(poll, 2000)
+        }
+      } catch (error) {
+        if (!cancelled && attempts++ < 5) timer = setTimeout(poll, 2500)
+      }
+    }
+    timer = setTimeout(poll, 1200)
+    return () => { cancelled = true; if (timer) clearTimeout(timer) }
+  }, [selectedId])
+
   const loadOlderLetters = useCallback(async () => {
     if (loadingOlderLetters || !hasOlderLetters) return
     setLoadingOlderLetters(true)

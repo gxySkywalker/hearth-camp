@@ -90,7 +90,7 @@ function navUp(state: NavState): NavState {
         return { ...state, poLetterIndex: Math.max(0, state.poLetterIndex - 1) }
       return state
     case 'observatory':
-      return { ...state, obsFocusIndex: state.obsFocusIndex === 0 ? 1 : 0 }
+      return { ...state, obsFocusIndex: state.obsFocusIndex === 0 ? 2 : state.obsFocusIndex - 1 }
     default:
       return state
   }
@@ -109,7 +109,7 @@ function navDown(state: NavState): NavState {
         return { ...state, poLetterIndex: state.poLetterIndex + 1 }
       return state
     case 'observatory':
-      return { ...state, obsFocusIndex: state.obsFocusIndex === 0 ? 1 : 0 }
+      return { ...state, obsFocusIndex: (state.obsFocusIndex + 1) % 3 }
     default:
       return state
   }

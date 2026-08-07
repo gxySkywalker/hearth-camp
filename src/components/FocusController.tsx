@@ -13,7 +13,12 @@ import expeditionDayBackdrop from '../../assets/art/environments/expedition/expe
 import expeditionDuskBackdrop from '../../assets/art/environments/expedition/expedition_dusk_v1.png'
 import expeditionNightBackdrop from '../../assets/art/environments/expedition/expedition_night_v1.png'
 
-const DURATION_OPTIONS = [15, 25, 45, 60, 90]
+const MIN_FOCUS_MINUTES = 1
+const MAX_FOCUS_MINUTES = 180
+
+function clampFocusMinutes(value: number) {
+  return Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, Math.round(Number(value) || MIN_FOCUS_MINUTES)))
+}
 const CONTRIB_XP_TABLE = [10, 8, 6, 4, 2]
 const CONTRIB_XP_CAP = 30
 
@@ -102,6 +107,21 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
       setInputContext('menu') // restore menu context when all dialogs close
     }
   }, [startOpen, stopOpen, confirmCancelOpen, expedition, newCompanion, caravan, bardPoem, growthEvent, levelUps.length])
+
+  // The cottage stays mounted underneath the expedition and its chained
+  // settlement scenes. Tell room ambience to stay silent until the traveller
+  // has actually returned from every result panel, not merely until the timer
+  // itself has stopped.
+  useEffect(() => {
+    const expeditionLayerActive = Boolean(
+      activeSession || stopOpen || confirmCancelOpen || expedition || newCompanion
+      || caravan || bardPoem || growthEvent || levelUps.length > 0,
+    )
+    window.dispatchEvent(new CustomEvent('growtharc:expedition-layer', { detail: expeditionLayerActive }))
+  }, [activeSession, stopOpen, confirmCancelOpen, expedition, newCompanion, caravan, bardPoem, growthEvent, levelUps.length])
+  useEffect(() => () => {
+    window.dispatchEvent(new CustomEvent('growtharc:expedition-layer', { detail: false }))
+  }, [])
   const [muted, setMuted] = useState(false)
   const [tick, setTick] = useState(Date.now())
   const snapshotAt = useRef(Date.now())
@@ -199,7 +219,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
   const start = async () => {
     setBusy(true)
     try {
-      const s = await window.growthArc.session.start({ taskId: taskId || null, areaId: areaId || null, content, companionId: companionId || null, plannedMinutes })
+      const s = await window.growthArc.session.start({ taskId: taskId || null, areaId: areaId || null, content, companionId: companionId || null, plannedMinutes: clampFocusMinutes(plannedMinutes) })
       snapshotAt.current = Date.now(); setActiveSession(s); setStartOpen(false)
       notify('城门已经打开。接下来只需要专注赶路。', 'success'); await refresh()
     } catch (e) { notify(friendlyError(e), 'error') } finally { setBusy(false) }
@@ -424,7 +444,7 @@ export function FocusController({ showLauncher = true }: { showLauncher?: boolea
           <label>从地图选择任务（可选）<select value={taskId} onChange={e => { setTaskId(e.target.value); const t = structure?.tasks.find(x => x.id === e.target.value); if (t) setAreaId(t.area_id) }}><option value="">临时远征</option>{structure?.tasks.filter(t => t.status !== 'done').map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select></label>
           {!taskId && <><label>探索区域<select value={areaId} onChange={e => setAreaId(e.target.value)}>{structure?.areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
           <label>这次只推进什么？<input autoFocus value={content} onChange={e => setContent(e.target.value)} placeholder="例如：读完第三章并整理两个例题" /></label></>}
-          <fieldset><legend>计划走多远</legend><div className="duration-picks">{DURATION_OPTIONS.map(m => <button type="button" className={plannedMinutes === m ? 'selected' : ''} key={m} onClick={() => setPlannedMinutes(m)}><strong>{m}</strong><span>分钟</span></button>)}</div></fieldset>
+          <fieldset><legend>计划走多远</legend><div className="duration-dial"><button type="button" className="duration-step" disabled={plannedMinutes <= MIN_FOCUS_MINUTES} onClick={() => setPlannedMinutes(value => clampFocusMinutes(value - 5))} aria-label="减少五分钟">−5</button><label className="duration-value"><input type="number" min={MIN_FOCUS_MINUTES} max={MAX_FOCUS_MINUTES} value={plannedMinutes} onChange={(event) => setPlannedMinutes(clampFocusMinutes(Number(event.target.value)))} onBlur={() => setPlannedMinutes(value => clampFocusMinutes(value))} /><span>分钟</span></label><button type="button" className="duration-step" disabled={plannedMinutes >= MAX_FOCUS_MINUTES} onClick={() => setPlannedMinutes(value => clampFocusMinutes(value + 5))} aria-label="增加五分钟">+5</button><div className="duration-meter" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} className={index < Math.ceil(plannedMinutes / 15) ? 'lit' : ''} />)}</div><small>{plannedMinutes >= 60 ? `约 ${Math.floor(plannedMinutes / 60)} 小时${plannedMinutes % 60 ? ` ${plannedMinutes % 60} 分钟` : ''}` : '从一小步开始，也是一段真正的旅途。'} · 最多 180 分钟</small></div></fieldset>
         </div>
         <aside className="companion-pick">
           <span className="companion-pick-kicker">本次同行伙伴</span>

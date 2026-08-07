@@ -1,8 +1,25 @@
 import { describe, expect, it } from 'vitest'
+import bardPoems from '../data/bard-poems.json'
 // @ts-expect-error The Electron game module is CommonJS and intentionally shared with tests.
 import game from '../../electron/game.cjs'
 
 const { durationTier, rollExpedition, rollCaravanEncounter, rollBardEncounter, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
+
+describe('bard poetry collection', () => {
+  it('ships forty complete and uniquely identifiable poems', () => {
+    expect(bardPoems).toHaveLength(40)
+    expect(new Set(bardPoems.map((poem) => poem.id)).size).toBe(40)
+    bardPoems.forEach((poem) => {
+      expect(poem.text.trim().length).toBeGreaterThan(0)
+      expect(poem.source.trim().length).toBeGreaterThan(0)
+      expect(poem.encouragement.trim().length).toBeGreaterThan(0)
+      if ('original' in poem) {
+        expect(poem.translation?.trim().length).toBeGreaterThan(0)
+        expect(poem.translationCredit?.trim().length).toBeGreaterThan(0)
+      }
+    })
+  })
+})
 
 describe('expedition rules', () => {
   it('improves reward tiers with healthy duration caps', () => {

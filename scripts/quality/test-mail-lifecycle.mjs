@@ -12,6 +12,7 @@ console.log(`Temp DB: ${dir}`)
 
 try {
   const db = await new StudyDatabase(dir).init()
+  const failures = []
   const area = db.getStructure().areas[0]
 
   // ── Setup: player started 2026-07-16 ──
@@ -79,25 +80,29 @@ try {
 
   // Daily: should have 4 letters (7/17-7/20)
   console.log(`daily count: ${dailies.length} (expected >=4)`)
+  if (dailies.length < 4) failures.push(`daily count: expected at least 4, got ${dailies.length}`)
   const oldTemplates = dailies.filter(s => s.includes('炉火旁') || s.includes('归程') || s.includes('整理'))
   console.log(`old templates in daily: ${oldTemplates.length} (expected 0)`)
+  if (oldTemplates.length > 0) failures.push(`old daily templates: expected 0, got ${oldTemplates.length}`)
   for (const s of dailies) {
-    if (!/^\d+月\d+日的星页$/.test(s)) console.log(`  BAD FORMAT: ${s}`)
+    if (!/^\d+月\d+日的星页$/.test(s)) failures.push(`bad daily title: ${s}`)
   }
 
   // Weekly: should have week 7/13-7/19
   console.log(`weekly count: ${weeklies.length} (expected >=1)`)
+  if (weeklies.length < 1) failures.push(`weekly count: expected at least 1, got ${weeklies.length}`)
   for (const s of weeklies) {
     console.log(`  ${s}`)
-    if (!/^\d+月\d+日-\d+月\d+日的旅途札记$/.test(s)) console.log(`  BAD FORMAT: ${s}`)
+    if (s !== '旅途札记') failures.push(`bad weekly title: ${s}`)
   }
 
   // Festival: should be 0 at July date
   console.log(`festival at 7/21: ${festivals.length} (expected 0)`)
-  if (festivals.length > 0) console.log('  WARNING: festival letters exist outside festival dates!')
+  if (festivals.length > 0) failures.push(`festival letters outside festival dates: ${festivals.length}`)
 
   // Birthday: should be 0 (birthday is 4/16, current date is 7/21)
   console.log(`birthday at 7/21: ${birthdays.length} (expected 0)`)
+  if (birthdays.length > 0) failures.push(`birthday letters outside birthday: ${birthdays.length}`)
 
   // ── Now test festival at Nov 7 ──
   console.log('\n=== Festival simulation ===')
@@ -113,6 +118,7 @@ try {
     const y2026 = fest.filter(l => l.period_key.includes('2026'))
     const status = y2026.length === t.expected2026 ? 'OK' : `FAIL (got ${y2026.length})`
     console.log(`  ${t.label}: ${status}`)
+    if (y2026.length !== t.expected2026) failures.push(`${t.label}: expected ${t.expected2026} festival letters, got ${y2026.length}`)
     if (status !== 'OK') for (const l of y2026) console.log(`    ${l.subject}`)
   }
 
@@ -120,16 +126,22 @@ try {
   console.log('\n=== Birthday simulation ===')
   const bdayTs = new Date(2027, 3, 16, 12).getTime()
   db.ensureBirthdayLetter(bdayTs)
-  const bdayLetters = db.listLetters({ letterType: 'festival' }).filter(l => l.period_key.includes('birthday'))
+  const bdayLetters = db.listLetters({ letterType: 'memorial' }).filter(l => l.period_key.includes('birthday'))
   console.log(`birthday 2027-04-16: ${bdayLetters.length} letter(s) (expected >=1)`)
+  if (bdayLetters.length < 1) failures.push(`birthday 2027-04-16: expected at least 1, got ${bdayLetters.length}`)
   // Check persistence
-  const bdayLetters2 = db.listLetters({ letterType: 'festival' }).filter(l => l.period_key.includes('birthday'))
+  const bdayLetters2 = db.listLetters({ letterType: 'memorial' }).filter(l => l.period_key.includes('birthday'))
   console.log(`birthday persistence: ${bdayLetters2.length} (expected same as above)`)
+  if (bdayLetters2.length !== bdayLetters.length) failures.push(`birthday persistence: expected ${bdayLetters.length}, got ${bdayLetters2.length}`)
 
   const diag = db.diagnoseMail()
   console.log('\n=== Final DB state ===')
   console.log(`daily:${diag.letters.daily} weekly:${diag.letters.weekly} festival:${diag.letters.festival} birthday:${diag.letters.birthday} world:${diag.letters.world}`)
   console.log(`orphans: L=${diag.orphanLetters} E=${diag.orphanEvents}  duplicates:${diag.duplicatePeriods}`)
+  if (diag.orphanLetters || diag.orphanEvents || diag.duplicatePeriods) failures.push('mail diagnostics reported orphaned or duplicate records')
+
+  if (failures.length > 0) throw new Error(`MAIL LIFECYCLE FAILED:\n${failures.map((failure) => `- ${failure}`).join('\n')}`)
+  console.log('\nMAIL LIFECYCLE PASSED')
 
 } finally {
   rmSync(dir, { recursive: true, force: true })

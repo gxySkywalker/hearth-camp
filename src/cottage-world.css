@@ -130,9 +130,25 @@
 .hearth-recipes strong { display: block; color: #563722; font-size: 13px; }
 .hearth-recipes .button { min-width: 52px; }
 @keyframes hearth-pixel-flicker { 50% { transform: translateY(-1px); filter: brightness(1.12); } }
-.poetry-shelf { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:14px; max-height:56vh; overflow:auto; background:#ead7b1; }
-.poetry-shelf article { padding:13px; color:#513523; background:#fff4dc; border:2px solid #c69b65; box-shadow:inset 0 0 0 2px #f1dfba; }
-.poetry-shelf small { color:#a26b3d; font-size:10px; }.poetry-shelf pre { margin:9px 0; white-space:pre-wrap; font:inherit; line-height:1.7; }.poetry-shelf strong { font-size:11px; }.poetry-shelf p { margin:8px 0 0; color:#806047; font-size:11px; line-height:1.6; }
+.poetry-modal { width:min(980px,calc(100vw - 34px)); overflow:hidden; }
+.poetry-modal .modal-body { padding:0; background:#18232d; }
+.poetry-book-intro { position:relative; display:grid; grid-template-columns:52px 1fr auto; gap:14px; align-items:center; padding:20px 24px; overflow:hidden; color:#f7e8c7; border-bottom:3px solid #9d6a42; background:linear-gradient(135deg,#273643,#17232d 68%,#402c38); }
+.poetry-book-intro::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.28; background:radial-gradient(circle at 8% 28%,#f0c776 0 2px,transparent 3px),radial-gradient(circle at 72% 24%,#d9a75c 0 1px,transparent 2px),radial-gradient(circle at 91% 70%,#e6bf77 0 2px,transparent 3px); background-size:79px 69px,57px 61px,91px 83px; }
+.poetry-book-intro>* { position:relative; z-index:1; }
+.poetry-book-intro>span { display:grid; place-items:center; width:48px; height:48px; color:#ffe4a1; border:2px solid #d99a56; background:#67475a; box-shadow:3px 3px 0 #101a20; font-size:27px; }
+.poetry-book-intro small { display:block; color:#e5b76e; font-size:9px; letter-spacing:.13em; }.poetry-book-intro strong { display:block; margin-top:4px; color:#fff0ce; font-size:16px; }.poetry-book-intro p { margin:5px 0 0; color:#cfbea5; font-size:10px; }
+.poetry-book-intro>b { color:#fff0cf; font-size:25px; }.poetry-book-intro>b i { margin-left:4px; color:#bd9870; font-size:11px; font-style:normal; }
+.poetry-shelf { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:16px; max-height:59vh; overflow:auto; background:linear-gradient(90deg,#d4b982 0 1px,transparent 1px),#d9c69f; background-size:50% 100%; }
+.poetry-shelf article { position:relative; min-height:260px; padding:15px 17px 17px; overflow:hidden; color:#513523; border:2px solid #b98953; background:#fff4dc; box-shadow:inset 0 0 0 3px #f1dfba,4px 5px 0 rgba(78,49,29,.16); }
+.poetry-shelf article::after { content:'✦'; position:absolute; right:13px; bottom:10px; color:#d8b77e; font-size:11px; }
+.poetry-shelf article header { display:flex; justify-content:space-between; gap:10px; padding-bottom:8px; color:#9a653c; border-bottom:1px solid #dcc39a; font-size:9px; }.poetry-shelf article time { color:#ad8057; }
+.poetry-verse-mark { height:18px; margin-top:7px; color:#bd7040; font-family:Georgia,serif; font-size:28px; line-height:1; }
+.poetry-shelf pre { margin:5px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.75; }
+.poetry-original { color:#402b20; font-size:13px!important; }.poetry-translation { margin-top:9px!important; padding-top:8px; color:#724a32; border-top:1px dashed #d6b88a; font-size:12px!important; }
+.poetry-source { display:block; margin-top:11px; color:#885c3e; font-size:10px; line-height:1.5; text-align:right; }
+.poetry-encouragement { margin:11px 0 0; padding:9px 10px; color:#72523d; border-left:3px solid #c67843; background:#f3dfbb; font-size:10px; line-height:1.65; }
+.poetry-empty { grid-column:1/-1; display:grid; place-items:center; min-height:260px; color:#77543a; border:2px dashed #b98b55; background:#f3e2bf; text-align:center; }.poetry-empty span { color:#b56c3e; font-size:25px; }.poetry-empty strong { font-size:16px; }.poetry-empty p { margin:0; color:#927159; font-size:11px; }
+@media (max-width:760px) { .poetry-shelf { grid-template-columns:1fr; background:#d9c69f; }.poetry-book-intro { grid-template-columns:44px 1fr; }.poetry-book-intro>b { display:none; } }
 .cottage-backpack-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:56vh; overflow:auto; padding:13px; background:#e9d5ac; }
 .cottage-backpack-item { width:100%; display:grid; grid-template-columns:38px 1fr auto; gap:9px; align-items:start; padding:10px; text-align:left; color:#573821; background:#fff1d7; border:2px solid #c79b65; box-shadow:inset 0 0 0 2px #f8e7c5; font:inherit; }.cottage-backpack-item.can-use { cursor:pointer; }.cottage-backpack-item.can-use:hover,.cottage-backpack-item.can-use:focus { background:#fff8e7; border-color:#ad6333; outline:none; }
 .cottage-backpack-item > span { display:grid; place-items:center; width:31px; height:31px; color:#a75d31; background:#e2bd83; border:1px solid #aa7548; }.cottage-backpack-item.rare > span,.cottage-backpack-item.precious > span { color:#d58b35; }

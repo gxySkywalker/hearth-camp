@@ -446,6 +446,7 @@ export interface GrowthArcApi {
   observatory: {
     getDaily: (dateOrTimestamp?: number) => Promise<DailyObservatoryData>
     getWeekly: (dateOrTimestamp?: number) => Promise<WeeklyObservatoryData>
+    getMonthly: (dateOrTimestamp?: number) => Promise<MonthlyObservatoryData>
     getReview: (date: string) => Promise<DailyReviewData>
     saveReview: (data: { date: string; win: string; blocker: string; energy: number | null; tomorrowTask: string }) => Promise<unknown>
   }
@@ -511,6 +512,21 @@ export interface WeeklyObservatoryData {
   representativeTasks: Array<{ id: string; title: string }>
   hourlyActiveSecondsByDay: number[][]
   hourlyDistributionPrecision: 'exact' | 'estimated'
+}
+
+export interface MonthlyObservatoryData {
+  period: ObservatoryPeriod
+  stats: {
+    totalActiveSeconds: number
+    dailyActiveSeconds: number[]
+    activeDays: number
+    longestDaySeconds: number
+    previousPeriodTotalSeconds: number
+    sessionCounts: SessionCounts
+    completedTaskCount: number
+    directionBreakdown: Array<{ id: string; name: string; color: string; seconds: number }>
+    longestSessionSeconds: number
+  }
 }
 
 export interface LetterListItem {

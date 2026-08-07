@@ -153,6 +153,18 @@ function getWeeklyPeriod(now = Date.now()) {
   return { periodKey: wk.key, periodStart: wk.start, periodEnd: wk.end, ...tzInfo(now) }
 }
 
+function getMonthlyPeriod(now = Date.now()) {
+  const d = new Date(now)
+  const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0)
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0, 0)
+  return {
+    periodKey: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`,
+    periodStart: start.getTime(),
+    periodEnd: end.getTime(),
+    ...tzInfo(now),
+  }
+}
+
 function previousWeeklyPeriod(now = Date.now()) {
   const wk = weekBounds(now)
   const prevStart = wk.start - 7 * 86400000
@@ -932,6 +944,7 @@ module.exports = {
   shouldGenerateWeeklyLetter,
   getDailyPeriod,
   getWeeklyPeriod,
+  getMonthlyPeriod,
   previousWeeklyPeriod,
   hashSeed,
   generateLocalLetterSubject,
@@ -971,29 +984,78 @@ function getDominantTimeWindow(hourlyData) {
 }
 
 function computeDailyHourly(db, period) {
-  const intervals = db.all(
-    `SELECT i.started_at, i.ended_at FROM focus_intervals i
-     JOIN focus_sessions s ON s.id = i.session_id
-     WHERE s.status = 'completed' AND s.active_seconds >= 60 AND s.ended_at >= ? AND s.ended_at < ?`,
+  const rows = db.all(
+    `SELECT s.id AS session_id, s.active_seconds, s.started_at AS session_started_at,
+            s.ended_at AS session_ended_at, i.started_at, i.ended_at
+     FROM focus_sessions s
+     LEFT JOIN focus_intervals i ON i.session_id = s.id
+     WHERE s.status = 'completed' AND s.active_seconds >= 60
+       AND s.ended_at > ? AND s.started_at < ?
+     ORDER BY s.id, i.started_at`,
     [period.periodStart, period.periodEnd],
   )
   if (typeof process !== 'undefined' && process.env?.VITE_DEV_SERVER_URL) {
-    console.log('[domain:computeDailyHourly]', { periodKey: period.periodKey, intervalCount: intervals.length, periodStart: new Date(period.periodStart).toISOString(), periodEnd: new Date(period.periodEnd).toISOString() })
+    console.log('[domain:computeDailyHourly]', { periodKey: period.periodKey, rowCount: rows.length, periodStart: new Date(period.periodStart).toISOString(), periodEnd: new Date(period.periodEnd).toISOString() })
   }
   const hourly = new Array(24).fill(0)
-  for (const iv of intervals) {
-    const cursor = Math.max(new Date(iv.started_at).getTime(), period.periodStart)
-    const end = Math.min(iv.ended_at || Date.now(), period.periodEnd)
-    let t = cursor
-    while (t < end) {
-      const d = new Date(t)
-      const hourStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime()
-      const hourEnd = hourStart + 3600000
-      const overlap = Math.min(end, hourEnd) - Math.max(t, hourStart)
-      if (overlap > 0) hourly[d.getHours()] += Math.round(overlap / 1000)
-      t = hourEnd
+  const sessions = new Map()
+  for (const row of rows) {
+    const session = sessions.get(row.session_id) || {
+      activeSeconds: Math.max(0, Math.round(Number(row.active_seconds) || 0)),
+      startedAt: Number(row.session_started_at) || 0,
+      endedAt: Number(row.session_ended_at) || 0,
+      intervals: [],
     }
+    if (row.started_at != null) session.intervals.push({ startedAt: Number(row.started_at), endedAt: Number(row.ended_at) || session.endedAt })
+    sessions.set(row.session_id, session)
   }
+  for (const session of sessions.values()) {
+    const buckets = new Array(24).fill(0)
+    const intervals = session.intervals.length
+      ? session.intervals
+      : [{ startedAt: Math.max(session.startedAt, session.endedAt - session.activeSeconds * 1000), endedAt: session.endedAt }]
+    let fullMeasured = 0
+    for (const interval of intervals) {
+      const intervalStart = Number(interval.startedAt) || 0
+      const intervalEnd = Math.max(intervalStart, Number(interval.endedAt) || session.endedAt)
+      fullMeasured += Math.max(0, intervalEnd - intervalStart) / 1000
+      let t = Math.max(interval.startedAt, period.periodStart)
+      const end = Math.min(intervalEnd, period.periodEnd)
+      while (t < end) {
+        const d = new Date(t)
+        const hourStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime()
+        const hourEnd = hourStart + 3600000
+        const overlap = Math.min(end, hourEnd) - Math.max(t, hourStart)
+        if (overlap > 0) buckets[d.getHours()] += overlap / 1000
+        t = hourEnd
+      }
+    }
+    const clippedMeasured = buckets.reduce((sum, seconds) => sum + seconds, 0)
+    if (clippedMeasured <= 0 || fullMeasured <= 0 || session.activeSeconds <= 0) continue
+    // `active_seconds` is the authoritative focused duration shown in the
+    // journey summary. Intervals only tell the chart where that duration sat
+    // on the clock; heartbeat cadence must not turn a 60-minute expedition
+    // into a 57-minute bar.
+    // A session can cross midnight. Scale each visible overlap against the
+    // *whole* session's measured intervals, otherwise the complete session
+    // duration gets squeezed into the small post-midnight fragment and an
+    // hourly bucket can incorrectly exceed sixty minutes.
+    const scale = session.activeSeconds / fullMeasured
+    const scaled = buckets.map((seconds) => seconds * scale)
+    const rounded = scaled.map(Math.floor)
+    const visibleTarget = Math.round(clippedMeasured * scale)
+    let remainder = visibleTarget - rounded.reduce((sum, seconds) => sum + seconds, 0)
+    const fractionOrder = scaled.map((seconds, hour) => ({ hour, fraction: seconds - rounded[hour] }))
+      .sort((a, b) => b.fraction - a.fraction)
+    for (let index = 0; remainder > 0 && index < fractionOrder.length; index += 1, remainder -= 1) {
+      rounded[fractionOrder[index].hour] += 1
+    }
+    rounded.forEach((seconds, hour) => { hourly[hour] += seconds })
+  }
+  // One civil hour cannot contain more than one hour of focused time. This is
+  // a final invariant guard for legacy/overlapping records; normal sessions
+  // already satisfy it through the overlap calculation above.
+  for (let hour = 0; hour < hourly.length; hour++) hourly[hour] = Math.min(3600, hourly[hour])
   // Zero out future hours when viewing today
   const todayStart = dayBounds(localDateKey()).start
   if (period.periodStart >= todayStart) {

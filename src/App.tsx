@@ -36,7 +36,7 @@ interface PageActions {
   poBackFromContent: () => void
   // Observatory
   obsTabIndex: number
-  obsSetTab: (tab: 'daily' | 'weekly') => void
+  obsSetTab: (tab: 'daily' | 'weekly' | 'monthly') => void
   obsPrevDate: () => void
   obsNextDate: () => void
 }
@@ -263,7 +263,7 @@ function AppShell() {
             break
           case 'Enter':
             e.preventDefault()
-            acts.obsSetTab(ns.obsFocusIndex === 0 ? 'daily' : 'weekly')
+            acts.obsSetTab(ns.obsFocusIndex === 0 ? 'daily' : ns.obsFocusIndex === 1 ? 'weekly' : 'monthly')
             playUISound('select')
             break
           case 'Escape':

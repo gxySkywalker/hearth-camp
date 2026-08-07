@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 // @ts-expect-error The Electron domain module is CommonJS and intentionally shared with tests.
 import domain from '../../electron/domain.cjs'
 
-const { focusXp, completionXp, levelFromXp, secondsWithinRange, getReturnKind, countSessionTypes, shouldGenerateDailyLetter, shouldGenerateWeeklyLetter, getDailyPeriod, getWeeklyPeriod, generateLocalLetterSubject, narrativeDirectionName, generateWeeklyFullTitle, weeklyDeliveryLabel, generateDailyTemplate, generateWeeklyTemplate, buildDailyLetterFacts, buildWeeklyLetterFacts, hashSeed, formatDurationZh, neutralCompare, getActiveFestivalNodes, buildFestivalFacts, generateFestivalTemplate, birthdayPeriod, generateBirthdayTemplate, getWorldState } = domain
+const { focusXp, completionXp, levelFromXp, secondsWithinRange, getReturnKind, countSessionTypes, shouldGenerateDailyLetter, shouldGenerateWeeklyLetter, getDailyPeriod, getWeeklyPeriod, getMonthlyPeriod, generateLocalLetterSubject, narrativeDirectionName, generateWeeklyFullTitle, weeklyDeliveryLabel, generateDailyTemplate, generateWeeklyTemplate, buildDailyLetterFacts, buildWeeklyLetterFacts, hashSeed, formatDurationZh, neutralCompare, getActiveFestivalNodes, buildFestivalFacts, generateFestivalTemplate, birthdayPeriod, generateBirthdayTemplate, getWorldState } = domain
 
 describe('experience and time rules', () => {
   it('keeps focus rewards bounded and completion rewards dominant', () => {
@@ -21,6 +21,61 @@ describe('experience and time rules', () => {
   it('counts only interval overlap in reports', () => {
     expect(secondsWithinRange(1_000, 11_000, 6_000, 20_000)).toBe(5)
     expect(secondsWithinRange(1_000, 4_000, 6_000, 20_000)).toBe(0)
+  })
+})
+
+describe('observatory hourly calibration', () => {
+  it('keeps hourly bars equal to the authoritative focused duration', () => {
+    const periodStart = new Date(2025, 7, 6, 0, 0, 0, 0).getTime()
+    const db = {
+      all: () => [{
+        session_id: 'session-1', active_seconds: 3600,
+        session_started_at: periodStart + 16 * 3600000,
+        session_ended_at: periodStart + 17 * 3600000,
+        started_at: periodStart + 16 * 3600000,
+        ended_at: periodStart + 16 * 3600000 + 57 * 60000,
+      }],
+    }
+    const hourly = domain.computeDailyHourly(db, { periodStart, periodEnd: periodStart + 86400000 })
+    expect(hourly[16]).toBe(3600)
+    expect(hourly.reduce((sum: number, seconds: number) => sum + seconds, 0)).toBe(3600)
+  })
+
+  it('only assigns the after-midnight share of a cross-day expedition', () => {
+    const periodStart = new Date(2026, 7, 7, 0, 0, 0, 0).getTime()
+    const rows = [
+      {
+        session_id: 'cross-midnight', active_seconds: 2454,
+        session_started_at: periodStart - 38 * 60000 - 49 * 1000,
+        session_ended_at: periodStart + 4 * 60000 + 23 * 1000,
+        started_at: periodStart - 38 * 60000 - 49 * 1000,
+        ended_at: periodStart - 21 * 60000 - 36 * 1000,
+      },
+      {
+        session_id: 'cross-midnight', active_seconds: 2454,
+        session_started_at: periodStart - 38 * 60000 - 49 * 1000,
+        session_ended_at: periodStart + 4 * 60000 + 23 * 1000,
+        started_at: periodStart - 19 * 60000 - 18 * 1000,
+        ended_at: periodStart + 4 * 60000 + 23 * 1000,
+      },
+      {
+        session_id: 'after-midnight', active_seconds: 1723,
+        session_started_at: periodStart + 13 * 60000 + 19 * 1000,
+        session_ended_at: periodStart + 42 * 60000 + 2 * 1000,
+        started_at: periodStart + 13 * 60000 + 19 * 1000,
+        ended_at: periodStart + 42 * 60000 + 2 * 1000,
+      },
+    ]
+    const hourly = domain.computeDailyHourly({ all: () => rows }, { periodStart, periodEnd: periodStart + 86400000 })
+    expect(hourly[0]).toBe(1986)
+    expect(Math.max(...hourly)).toBeLessThanOrEqual(3600)
+  })
+
+  it('creates exact local calendar-month bounds', () => {
+    const period = getMonthlyPeriod(new Date(2026, 7, 7, 12, 0, 0).getTime())
+    expect(period.periodKey).toBe('2026-08')
+    expect(new Date(period.periodStart).getDate()).toBe(1)
+    expect(new Date(period.periodEnd).getMonth()).toBe(8)
   })
 })
 

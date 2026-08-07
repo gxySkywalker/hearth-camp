@@ -1,75 +1,63 @@
-// AI narrative integration test — uses real API Key from user's config
+// AI narrative integration test. It intentionally uses a temporary database
+// and a deterministic mock provider: quality checks must never read or write a
+// player's DPAPI key or production save.
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { strict as assert } from 'node:assert'
 import { createRequire } from 'node:module'
+
 const require = createRequire(import.meta.url)
 const { StudyDatabase } = require('../../electron/database.cjs')
-const path = require('path')
+const { generateAngelNarrative } = require('../../electron/angel-ai.cjs')
 
-const dataDir = path.join(process.env.APPDATA || process.env.USERPROFILE + '/AppData/Roaming', 'growth-arc')
+const dir = mkdtempSync(join(tmpdir(), 'hearth-camp-ai-test-'))
 
-async function main() {
-  const db = await new StudyDatabase(dataDir).init()
-  console.log('DB:', db.filePath)
-
-  // Check API Key
-  const settings = db.getSettings()
-  const hasKey = settings.hasApiKey || '0'
-  const provider = settings.api_provider || 'openai'
-  const model = settings.model || 'gpt-5.6-luna'
-  const baseUrl = settings.ai_base_url || (provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1')
-
-  console.log('Provider:', provider)
-  console.log('Model:', model)
-  console.log('Base URL:', baseUrl)
-
-  if (hasKey !== '1') {
-    console.log('\n❌ No API Key configured. Skipping live test.')
-    console.log('→ Template letters will be used (world-appropriate narrative without AI).')
-    console.log('→ This is the expected default behavior. AI is optional.')
-    return
-  }
-
-  // Create test letter
-  const testId = 'test-ai-narrative-' + Date.now()
-  const fact = {
-    schemaVersion: 2,
+try {
+  const db = await new StudyDatabase(dir).init()
+  const now = Date.now()
+  const letter = db.createLetter({
+    id: 'test-ai-narrative',
     letterType: 'daily',
-    period: { periodKey: '2026-07-21', timezoneName: 'Asia/Shanghai' },
-    stats: { totalActiveSeconds: 7200, sessionCounts: { brief: 0, short: 1, expedition: 0, deep: 0 } },
-    journey: { completedTasks: [{ title: '整理松风林的旧地图' }], mainDirection: null },
-    observatory: { hasWrittenReview: false },
-    chronicle: { season: '夏' },
-    memory: {},
-  }
-
-  try {
-    db.createLetter({
-      id: testId,
+    periodKey: '2026-08-06',
+    periodStart: now - 86400000,
+    periodEnd: now,
+    timezoneOffsetMinutes: 480,
+    timezoneName: 'Asia/Shanghai',
+    subject: '8月6日的星页',
+    fact: {
+      schemaVersion: 2,
       letterType: 'daily',
-      periodKey: 'test-2026-07-21',
-      periodStart: Date.now() - 86400000,
-      periodEnd: Date.now(),
-      timezoneOffsetMinutes: -480,
-      timezoneName: 'Asia/Shanghai',
-      subject: '[TEST] AI Narrative Test',
-      fact: fact,
-      templateBody: '今天沿着旧路走了一段不短的路。炉火旁安静地收好今天。',
-    })
+      period: { periodKey: '2026-08-06', timezoneName: 'Asia/Shanghai' },
+      stats: { totalActiveSeconds: 3600, sessionCounts: { brief: 0, short: 0, expedition: 1, deep: 0 } },
+      journey: { completedTasks: [{ title: '整理炉火营地问题' }], mainDirection: '炉火营地问题修复' },
+      observatory: { hasWrittenReview: false },
+      chronicle: { season: '夏' },
+    },
+    templateBody: '这一页先由小天使安静收好。',
+  })
 
-    // Read the actual API key from Windows DPAPI
-    const { app, safeStorage } = require('electron')
-    // We can't access Electron APIs from a plain Node script.
-    // Instead, call the IPC via main process.
-    console.log('\n⚠ Cannot call AI from plain Node script (needs Electron safeStorage).')
-    console.log('→ Test letter created in DB with template_body.')
-    console.log('→ Run the Electron app to trigger ensureAiNarratives().')
-    console.log('→ Then check letters table: ai_status should be success/failed.')
+  let sentBody = null
+  const aiText = '今天你一共踏上了1次出征，来路都落在地图上。今天的旅途主要朝着炉火营地问题修复延伸。整理炉火营地问题的路标已经收好。'
+  const result = await generateAngelNarrative({
+    letter,
+    apiKey: 'integration-test-key',
+    settings: { api_provider: 'deepseek', model: 'deepseek-v4-flash' },
+    prompt: '只依据当前信件事实写信。',
+    fetchImpl: async (_url, options) => {
+      sentBody = JSON.parse(options.body)
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: aiText } }] }) }
+    },
+  })
 
-    // Cleanup
-    db.run("DELETE FROM letters WHERE id = ?", [testId])
-    console.log('→ Test letter cleaned up.')
-  } catch (e) {
-    console.error('Test failed:', e.message)
-  }
+  assert.equal(result.success, true)
+  assert.match(sentBody.messages[0].content, /炉火营地问题修复/)
+  db.run("UPDATE letters SET ai_body = ?, body_source = 'ai', ai_status = 'success', ai_provider = ?, ai_model = ? WHERE id = ?", [result.text, result.provider, result.model, letter.id])
+  const stored = db.getLetterById(letter.id)
+  const visibleBody = stored.body_source === 'ai' && stored.ai_body ? stored.ai_body : stored.template_body
+  assert.equal(visibleBody, aiText)
+  assert.equal(stored.ai_provider, 'deepseek')
+  console.log('AI NARRATIVE INTEGRATION PASSED: facts → provider request → AI body → visible letter')
+} finally {
+  rmSync(dir, { recursive: true, force: true })
 }
-
-main().catch(console.error)

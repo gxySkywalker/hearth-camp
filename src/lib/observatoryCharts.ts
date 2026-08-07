@@ -68,6 +68,44 @@ export function weeklyBarsOption(daily: number[], todayIdx: number): EChartsCore
   }
 }
 
+export function monthlyBarsOption(daily: number[], year: number, month: number, todayDate = -1): EChartsCoreOption {
+  const days = daily.map((_, index) => String(index + 1))
+  const maxValue = Math.max(1, ...daily)
+  const axisMax = Math.max(3600, Math.ceil(maxValue / 3600) * 3600)
+  const bars = daily.map((value, index) => value > 0 ? {
+    value,
+    itemStyle: { color: index + 1 === todayDate ? STAR_HI : STAR, borderRadius: 0 },
+  } : 0)
+  return {
+    ...BASE,
+    grid: { top: 20, right: 18, bottom: 28, left: 62 },
+    xAxis: {
+      type: 'category', data: days, axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } }, splitLine: { show: false },
+      axisLabel: {
+        color: AXIS_MUTED, fontSize: 9,
+        formatter: (value: string, index: number) => (index === 0 || index === daily.length - 1 || (index + 1) % 5 === 0) ? value : '',
+      },
+    },
+    yAxis: {
+      type: 'value', min: 0, max: axisMax, splitNumber: Math.min(5, Math.max(2, axisMax / 3600)),
+      axisTick: { show: false }, axisLine: { show: false },
+      splitLine: { lineStyle: { color: AXIS_LINE } },
+      axisLabel: { color: AXIS_MUTED, fontSize: 9, formatter: (value: number) => value === 0 ? '0' : value % 3600 === 0 ? `${value / 3600}小时` : `${Math.round(value / 60)}分` },
+    },
+    series: [{
+      type: 'bar', data: bars, barMaxWidth: 18, barMinHeight: 2,
+      emphasis: { itemStyle: { color: STAR_L4 } },
+      itemStyle: { color: STAR, borderRadius: 0 },
+    }],
+    tooltip: {
+      trigger: 'item', backgroundColor: CHART_BG, borderColor: BRASS,
+      textStyle: { color: AXIS_TEXT, fontSize: 12 },
+      formatter: (p: any) => Number(p?.value) > 0 ? `${year}年${month}月${p.dataIndex + 1}日<br/>留下${fmtLong(Number(p.value))}` : '',
+    },
+  }
+}
+
 export function heatmapOption(grid: number[][], todayRow: number): EChartsCoreOption {
   const data: [number, number, number][] = []
   for (let day = 0; day < 7; day++) for (let hour = 0; hour < 24; hour++) {

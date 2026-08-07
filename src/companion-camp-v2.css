@@ -96,6 +96,10 @@
 .backpack-card .camp-v2-backpack-item.uncommon > span { color: #557d59; background: #dbe7d5; border-color: #9bb592; }
 .backpack-card .camp-v2-backpack-item.rare > span { color: #b17a26; background: #f5e0aa; border-color: #d4a34c; }
 .backpack-card .camp-v2-backpack-item.precious > span { color: #f3dfb4; background: #685179; border-color: #b58bce; }
+.camp-v2-backpack-pages { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; margin-top:11px; padding-top:10px; border-top:1px solid #d6b98d; }
+.camp-v2-backpack-pages button { min-height:29px; padding:4px 8px; color:#75462f; border:1px solid #bc8c5d; background:#f2dfbc; font:inherit; font-size:10px; cursor:pointer; }
+.camp-v2-backpack-pages button:last-child { justify-self:end; }.camp-v2-backpack-pages button:hover:not(:disabled) { color:#fff0cf; background:#a75d38; }.camp-v2-backpack-pages button:disabled { opacity:.42; cursor:default; }
+.camp-v2-backpack-pages span { color:#9a785f; font-size:9px; }.camp-v2-backpack-pages b { color:#70432d; font-size:13px; }
 .camp-v2-item-use-body { display: grid; grid-template-columns: 48px 1fr; gap: 13px; align-items: center; }
 .camp-v2-item-use-body > span { display: grid; place-items: center; width: 44px; height: 44px; color: #af6639; border: 2px solid #bd9365; background: #ead0a3; }
 .camp-v2-item-use-body strong { font-size: 16px; }
