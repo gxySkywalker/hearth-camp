@@ -8,9 +8,10 @@ import { getCottageLightPeriod, type CottageLightPeriod } from '../lib/cottage-l
 import roomDayBackdrop from '../../assets/art/environments/cottage/cottage_room_day_512_v1.png'
 import roomNightBackdrop from '../../assets/art/environments/cottage/cottage_room_night_512_v1.png'
 import hearthFireAtlas from '../../assets/art/environments/cottage/cottage_hearth_fire_4frames_v1.png'
-import playerWalkAtlas from '../../assets/art/characters/player/player_walk_32x48_v1.png'
-import blueTravelerWalkAtlas from '../../assets/art/characters/player/player_adventurer_blue_walk_32x48_v1.png'
-import ochreTravelerDirectionTestAtlas from '../../assets/art/characters/player/player_adventurer_ochre_direction-test_walk_32x48_v1.png'
+import hearthTravelerNativeWalkAtlas from '../../assets/art/characters/player/player_adventurer_hearth_native_walk_32x48_v2.png'
+import blueTravelerNativeWalkAtlas from '../../assets/art/characters/player/player_adventurer_blue_native_walk_32x48_v2.png'
+import ochreTravelerNativeWalkAtlas from '../../assets/art/characters/player/player_adventurer_ochre_native_walk_32x48_v2.png'
+import silverTravelerNativeWalkAtlas from '../../assets/art/characters/player/player_adventurer_silver_native_walk_32x48_v1.png'
 import hearthHoundWalkAtlas from '../../assets/art/characters/companions/hearth_hound_walk_48_v1.png'
 import hearthHoundManeWalkAtlas from '../../assets/art/characters/companions/hearth_hound_stage-1_walk_48_v1.png'
 import hearthHoundEmberTailWalkAtlas from '../../assets/art/characters/companions/hearth_hound_ember_tail_walk_48_v1.png'
@@ -34,9 +35,9 @@ import moonOwlFinalWalkAtlas from '../../assets/art/characters/companions/moon_o
 import cloudRabbitWalkAtlas from '../../assets/art/characters/companions/cloud_rabbit_stage-0_walk_48_v1.png'
 import cloudRabbitGrownWalkAtlas from '../../assets/art/characters/companions/cloud_rabbit_stage-1_walk_48_v1.png'
 import cloudRabbitFinalWalkAtlas from '../../assets/art/characters/companions/cloud_rabbit_wind_tuft_rabbit_walk_48_v1.png'
-import emberDrakeWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-0_walk_48_v1.png'
-import emberDrakeGrownWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-1_walk_48_v1.png'
-import emberDrakeFinalWalkAtlas from '../../assets/art/characters/companions/ember_drake_ember_drake_walk_48_v1.png'
+import emberDrakeWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-0_walk_48_v2.png'
+import emberDrakeGrownWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-1_walk_48_v2.png'
+import emberDrakeFinalWalkAtlas from '../../assets/art/characters/companions/ember_drake_ember_drake_walk_48_v2.png'
 import {
   COTTAGE_PLAYER_HEIGHT,
   COTTAGE_PLAYER_WIDTH,
@@ -231,12 +232,14 @@ export function PixiCottageScene({
         }
         const usesProductionAtlas = !companion || PRODUCTION_COMPANION_SPECIES.has(companion.species_id)
         const selectedPlayerAtlas = {
-          traveler_blue: blueTravelerWalkAtlas,
-          // Test one repaired PixelMotion direction in the real cottage before
-          // replacing all four directions. South/north/west remain the current
-          // approved atlas; the fourth (east) row is the crisp source sample.
-          traveler_ochre: ochreTravelerDirectionTestAtlas,
-        }[playerAvatar] || playerWalkAtlas
+          traveler_clothes: hearthTravelerNativeWalkAtlas,
+          traveler_blue: blueTravelerNativeWalkAtlas,
+          // The golden-ear traveller now uses the transparent native-pixel
+          // 4×4 source. Every direction keeps the same 32×48 footprint and
+          // baseline as the original furnace traveller.
+          traveler_ochre: ochreTravelerNativeWalkAtlas,
+          traveler_silver: silverTravelerNativeWalkAtlas,
+        }[playerAvatar] || hearthTravelerNativeWalkAtlas
         const [dayBackdropTexture, nightBackdropTexture, playerAtlas, houndAtlas, fireAtlas] = await Promise.all([
           loadTexture(roomDayBackdrop),
           loadTexture(roomNightBackdrop),
@@ -583,43 +586,48 @@ export function PixiCottageScene({
       state.stepsRemaining = 0
       state.pauseUntil = now + duration + Math.floor(Math.random() * 550)
     }
+    // Keep the expedition companion's wait state isolated. Returning from this
+    // helper must never abort the room ticker: other friends keep wandering
+    // when one of them is politely waiting for the traveller to step aside.
+    const advanceActiveWander = (now: number) => {
+      if (!companion || companion.id === pausedCompanionId || companionMode !== 'wander' || !companionSpriteRef.current) return
+      const state = activeWanderRef.current
+      const current = companionPositionRef.current
+      if (state.waitingForPlayer) {
+        const nextInSameDirection = state.direction ? resolveCottageWanderMove(current, state.direction) : current
+        if (state.direction && playerCollides(nextInSameDirection)) return
+        state.waitingForPlayer = false
+      }
+      if (now < state.pauseUntil) return
+      if (!state.direction || state.stepsRemaining <= 0) {
+        state.direction = chooseDirection(current, companion.id)
+        state.stepsRemaining = state.direction ? 8 + Math.floor(Math.random() * 13) : 0
+        if (!state.direction) pauseFor(state, now, 900)
+        return
+      }
+      const next = resolveCottageWanderMove(current, state.direction)
+      if (playerCollides(next)) {
+        state.waitingForPlayer = true
+        setCompanionDirection(facePlayer(current, companionDirection))
+        setCompanionWalkFrame(0)
+        return
+      }
+      if ((next.x === current.x && next.y === current.y) || !isOpen(next, companion.id)) {
+        pauseFor(state, now)
+        setCompanionWalkFrame(0)
+        return
+      }
+      setCompanionDirection(state.direction)
+      setCompanionWalkFrame((frame) => (frame + 1) % 4)
+      rememberCottageCompanionPosition(next)
+      setCompanionPosition(next)
+      state.stepsRemaining -= 1
+      if (state.stepsRemaining <= 0) setCompanionWalkFrame(0)
+    }
     const timer = window.setInterval(() => {
       if (!appRef.current) return
       const now = Date.now()
-      if (companion && companion.id !== pausedCompanionId && companionMode === 'wander' && companionSpriteRef.current) {
-        const state = activeWanderRef.current
-        const current = companionPositionRef.current
-        if (state.waitingForPlayer) {
-          const nextInSameDirection = state.direction ? resolveCottageWanderMove(current, state.direction) : current
-          if (state.direction && playerCollides(nextInSameDirection)) return
-          state.waitingForPlayer = false
-        }
-        if (now < state.pauseUntil) return
-        if (!state.direction || state.stepsRemaining <= 0) {
-          state.direction = chooseDirection(current, companion.id)
-          state.stepsRemaining = state.direction ? 8 + Math.floor(Math.random() * 13) : 0
-          if (!state.direction) pauseFor(state, now, 900)
-          return
-        }
-        const next = resolveCottageWanderMove(current, state.direction)
-        if (playerCollides(next)) {
-          state.waitingForPlayer = true
-          setCompanionDirection(facePlayer(current, companionDirection))
-          setCompanionWalkFrame(0)
-          return
-        }
-        if (next.x === current.x && next.y === current.y || !isOpen(next, companion.id)) {
-          pauseFor(state, now)
-          setCompanionWalkFrame(0)
-          return
-        }
-        setCompanionDirection(state.direction)
-        setCompanionWalkFrame((frame) => (frame + 1) % 4)
-        rememberCottageCompanionPosition(next)
-        setCompanionPosition(next)
-        state.stepsRemaining -= 1
-        if (state.stepsRemaining <= 0) setCompanionWalkFrame(0)
-      }
+      advanceActiveWander(now)
       residentCompanions.forEach((resident) => {
         if ((residentModes[resident.id] || 'wander') !== 'wander') return
         if (resident.id === pausedCompanionId) return

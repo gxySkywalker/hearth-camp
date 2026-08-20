@@ -41,7 +41,7 @@ describe('expedition rules', () => {
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'common')).toHaveLength(4)
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'uncommon')).toHaveLength(7)
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'rare')).toHaveLength(5)
-    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'precious')).toHaveLength(3)
+    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'precious')).toHaveLength(5)
     const boosted = rollExpedition({ sessionId: 'boosted', activeSeconds: 5 * 60, ownedSpeciesIds: ['hearth_hound'], rareBoost: true, nightRareBoost: true, companionBoost: true })
     expect(boosted.rareChance).toBeCloseTo(0.14)
     expect(boosted.companionChance).toBeCloseTo(0.101)

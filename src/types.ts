@@ -84,6 +84,7 @@ export interface Companion {
   stageName: string
   evolution_path: string
   evolutionReady: boolean
+  form_lock_mode?: 'none' | 'rewound' | 'eternal'
   nextBondXp: number
   growth_completed_at?: number | null
   personalityProfile: {
@@ -91,7 +92,7 @@ export interface Companion {
     habit: string
     quirk: string
   }
-  memories: Array<{ kind: 'first' | 'journey' | 'habit' | 'growth'; text: string; at: number }>
+  memories: Array<{ kind: 'first' | 'journey' | 'place' | 'habit' | 'growth' | 'rewind' | 'eternal'; text: string; at: number }>
   is_active: number
   is_ill: number
   ill_since?: number | null
@@ -435,8 +436,8 @@ export interface GrowthArcApi {
     generate: (type: 'daily' | 'weekly', date: string) => Promise<{ report: AiReport; model: string }>
   }
   inventory: {
-    use: (itemId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
-    useTarget: (itemId: string, companionId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
+    use: (itemId: string) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; formChange?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
+    useTarget: (itemId: string, companionId: string, targetStage?: number | null) => Promise<{ consumed: boolean; itemId: string; effect: string; growthEvent?: CompanionGrowthEvent | null; formChange?: CompanionGrowthEvent | null; consumedQuantity?: number; unlockedLocation?: string | null }>
   }
   hearth: {
     get: () => Promise<{ lit: boolean }>

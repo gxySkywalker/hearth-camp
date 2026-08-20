@@ -27,6 +27,8 @@ const LORE: Record<string, ItemLore> = {
   star_glass:        { effectLabel: '下一次正式远征稀有发现概率 +10%', consumesItem: true, xpAwarded: null },
   silver_bell:       { effectLabel: '使用后消失：新伙伴相遇概率 +10%，直至相遇发生', consumesItem: true, xpAwarded: null },
   ancient_tower_page:{ effectLabel: '古塔的线索仍待解读', consumesItem: false, xpAwarded: null, collectible: true },
+  rewind_gem:       { effectLabel: '让已长成的伙伴回到曾经的形态；羁绊不变，之后不再进化', consumesItem: true, xpAwarded: null },
+  eternal_diamond:  { effectLabel: '交给当前同行伙伴：定格此刻形态，羁绊仍会继续增加', consumesItem: true, xpAwarded: null },
 }
 
 export function getItemLore(item: Pick<LootItem, 'id'>): ItemLore {

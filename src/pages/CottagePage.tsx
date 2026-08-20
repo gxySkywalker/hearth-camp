@@ -64,6 +64,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
   const [backpackOpen, setBackpackOpen] = useState(false)
   const [itemToUse, setItemToUse] = useState<any | null>(null)
   const [itemTargetId, setItemTargetId] = useState('')
+  const [itemTargetStage, setItemTargetStage] = useState(0)
   const [usingItem, setUsingItem] = useState(false)
   const [mapSynthesisOpen, setMapSynthesisOpen] = useState(false)
   const [unlockedMapLocation, setUnlockedMapLocation] = useState<string | null>(null)
@@ -129,7 +130,10 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
   const [giftMenuOpen, setGiftMenuOpen] = useState(false)
   const [giftBusy, setGiftBusy] = useState(false)
   const [giftResult, setGiftResult] = useState<string | null>(null)
-  const giftOptions = dialogueCompanion ? world.inventory.filter((entry) => entry.item_id === 'berry_bread' || entry.item_id === 'honey_amber' || entry.item_id === COMPANION_KEEPSAKES[dialogueCompanion.species_id]) : []
+  const giftOptions = dialogueCompanion ? world.inventory.filter((entry) => entry.item_id === 'berry_bread'
+    || entry.item_id === 'honey_amber'
+    || entry.item_id === COMPANION_KEEPSAKES[dialogueCompanion.species_id]
+    || (entry.item_id === 'eternal_diamond' && Boolean(dialogueCompanion.is_active) && !dialogueCompanion.form_lock_mode)) : []
   const closeDialogue = useCallback(() => {
     setDialogueOpen(false)
     setTalkingCompanion(null)
@@ -275,15 +279,17 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
       return
     }
     setItemToUse(entry)
-    setItemTargetId(entry.item_id === 'herbal_soup' ? world.companions.owned.find((candidate) => candidate.is_ill)?.id || '' : companion?.id || '')
+    const targetId = entry.item_id === 'herbal_soup' ? world.companions.owned.find((candidate) => candidate.is_ill)?.id || '' : companion?.id || ''
+    setItemTargetId(targetId)
+    setItemTargetStage(Math.max(0, Number(world.companions.owned.find((candidate) => candidate.id === targetId)?.stage || 0) - 1))
     setInputContext('dialog')
   }
   const useBackpackItem = async () => {
     if (!itemToUse || usingItem) return
     try {
       setUsingItem(true)
-      const targeted = itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber'
-      const result = targeted ? await window.growthArc.inventory.useTarget(itemToUse.item_id, itemTargetId) : await window.growthArc.inventory.use(itemToUse.item_id)
+      const targeted = ['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id)
+      const result = targeted ? await window.growthArc.inventory.useTarget(itemToUse.item_id, itemTargetId, itemToUse.item_id === 'rewind_gem' ? itemTargetStage : null) : await window.growthArc.inventory.use(itemToUse.item_id)
       notify(result.effect, 'success'); setItemToUse(null); await refresh()
     } catch (error) { notify(error instanceof Error ? error.message : String(error), 'error') } finally { setUsingItem(false) }
   }
@@ -367,7 +373,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         {unlockedMapLocation ? <div className="map-synthesis-reveal"><span className="map-synthesis-icon"><Icon name="map" size={34} /></span><small>新的远征地点</small><h3>{unlockedMapLocation}</h3><p>碎片间的道路终于连成一线。下次正式远征时，它会和原有地点一起出现在可抵达的边境地图中。</p></div> : <div className="map-synthesis-panel"><span className="map-synthesis-icon"><Icon name="map" size={30} /></span><div><small>尚未绘入地图的路</small><h3>手绘地图碎片</h3><p>把十张碎片铺开，缺失的地貌会慢慢在纸上显现。</p></div><strong className="map-synthesis-count">{inventoryCount('map_scrap')} <i>/ 10</i></strong><div className="map-synthesis-fragments" aria-label={`已有 ${inventoryCount('map_scrap')} 张地图碎片`}>{Array.from({ length: 10 }, (_, index) => <span key={index} className={index < inventoryCount('map_scrap') ? 'is-filled' : ''}>◇</span>)}</div></div>}
         <footer className="modal-footer">{unlockedMapLocation ? <button className="button button-primary" onClick={() => closeOverlay(setMapSynthesisOpen)}>把地图收进行囊</button> : <><button className="button button-ghost" disabled={usingItem} onClick={() => closeOverlay(setMapSynthesisOpen)}>暂不拼合</button><button className="button button-primary" disabled={usingItem || inventoryCount('map_scrap') < 10} onClick={() => void synthesizeMap()}>{usingItem ? '正在拼合…' : '拼合地图'}</button></>}</footer>
       </Modal>}
-      {itemToUse && <Modal title={`使用「${itemToUse.item.name}」`} onClose={() => !usingItem && setItemToUse(null)} className="cottage-item-use-modal"><div className="hearth-panel"><div className="hearth-panel-flame"><Icon name={itemToUse.item.icon} size={24} /></div><div><small>小屋背包</small><h3>{itemToUse.item.name}</h3><p>{getItemLore(itemToUse.item).effectLabel}</p></div></div>{(itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber') && <label className="field-label">交给谁<select value={itemTargetId} onChange={(event) => setItemTargetId(event.target.value)}><option value="">请选择伙伴</option>{world.companions.owned.filter((candidate) => itemToUse.item_id !== 'herbal_soup' || candidate.is_ill).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nickname}{candidate.is_ill ? '（休养中）' : ''}</option>)}</select></label>}<footer className="modal-footer"><button className="button button-ghost" disabled={usingItem} onClick={() => setItemToUse(null)}>暂不使用</button><button className="button button-primary" disabled={usingItem || ((itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber') && !itemTargetId)} onClick={() => void useBackpackItem()}>{usingItem ? '正在使用…' : '确认使用'}</button></footer></Modal>}
+      {itemToUse && <Modal title={`使用「${itemToUse.item.name}」`} onClose={() => !usingItem && setItemToUse(null)} className="cottage-item-use-modal"><div className="hearth-panel"><div className="hearth-panel-flame"><Icon name={itemToUse.item.icon} size={24} /></div><div><small>小屋背包</small><h3>{itemToUse.item.name}</h3><p>{getItemLore(itemToUse.item).effectLabel}</p></div></div>{['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id) && <label className="field-label">交给谁<select value={itemTargetId} onChange={(event) => { const nextId = event.target.value; setItemTargetId(nextId); setItemTargetStage(Math.max(0, Number(world.companions.owned.find((candidate) => candidate.id === nextId)?.stage || 0) - 1)) }}><option value="">请选择伙伴</option>{world.companions.owned.filter((candidate) => itemToUse.item_id !== 'herbal_soup' || candidate.is_ill).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nickname}{candidate.is_ill ? '（休养中）' : ''}</option>)}</select></label>}{itemToUse.item_id === 'rewind_gem' && (() => { const target = world.companions.owned.find((candidate) => candidate.id === itemTargetId); const stages = Array.from({ length: Math.max(0, Number(target?.stage || 0)) }, (_, index) => index); return <label className="field-label">回到哪个形态<select value={itemTargetStage} onChange={(event) => setItemTargetStage(Number(event.target.value))} disabled={stages.length === 0}><option value="">请选择曾经的形态</option>{stages.map((stage) => <option key={stage} value={stage}>{target?.species.stages[stage]}</option>)}</select></label> })()}<footer className="modal-footer"><button className="button button-ghost" disabled={usingItem} onClick={() => setItemToUse(null)}>暂不使用</button><button className="button button-primary" disabled={usingItem || (['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id) && !itemTargetId)} onClick={() => void useBackpackItem()}>{usingItem ? '正在使用…' : '确认使用'}</button></footer></Modal>}
     </section>
   </div>
 }

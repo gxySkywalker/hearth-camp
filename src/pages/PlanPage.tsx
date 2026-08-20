@@ -235,6 +235,7 @@ export function PlanPage() {
         {view === 'map' && statusFilter === 'active' && <div className="cartography-map-head">
           <span className="color-dot large" style={{ background: area?.color }} /><div><span className="eyebrow">当前方向</span><h2>{area?.name || '未命名区域'}</h2></div>
           <button className="button button-secondary button-small" onClick={() => openForm('goal')}><Icon name="flag" size={14} />新建目标分组</button>
+          {selectedGoal && <button className="button button-ghost button-small" onClick={() => openForm('goal', selectedGoal)}>重命名分组</button>}
           {selectedGoal && <button className="button button-ghost button-small" onClick={() => { const goal = goals.find(item => item.id === selectedGoal); if (goal) setGoalToDelete(goal) }}>删除当前分组</button>}
         </div>}
         {view === 'map' && statusFilter === 'active' && goals.length > 0 && <div className="goal-tabs">

@@ -1,6 +1,6 @@
 {
   "name": "growth-arc",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "private": true,
   "description": "炉火营地：本地优先的像素陪伴与远征记录",
   "main": "electron/main.cjs",

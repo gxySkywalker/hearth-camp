@@ -18,6 +18,8 @@ const formatDay = (timestamp?: number | null) => timestamp
 
 const daysTogether = (timestamp: number) => Math.max(1, Math.floor((Date.now() - timestamp) / 86_400_000) + 1)
 const CAMP_BACKPACK_PAGE_SIZE = 6
+const CAMP_COMPANION_PAGE_SIZE = 4
+const CAMP_MEMORY_PAGE_SIZE = 6
 
 const bondChapter = (companion: Companion) => {
   if (companion.stage >= 2) return { name: '长成', range: '200+', note: '它已经以那一刻的天光，长成了更完整的自己。', next: 200 }
@@ -55,10 +57,14 @@ export function GrowthPage() {
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [renaming, setRenaming] = useState(false)
   const [pendingGrowth, setPendingGrowth] = useState<CompanionGrowthEvent | null>(null)
+  const [rewindEvent, setRewindEvent] = useState<CompanionGrowthEvent | null>(null)
   const [itemToUse, setItemToUse] = useState<InventoryEntry | null>(null)
   const [itemTargetId, setItemTargetId] = useState('')
+  const [itemTargetStage, setItemTargetStage] = useState(0)
   const [usingItem, setUsingItem] = useState(false)
   const [backpackPage, setBackpackPage] = useState(0)
+  const [companionPage, setCompanionPage] = useState(0)
+  const [memoryPage, setMemoryPage] = useState(0)
   useEffect(() => {
     if (dashboard?.world.pendingGrowthEvent) setPendingGrowth(dashboard.world.pendingGrowthEvent)
   }, [dashboard?.world.pendingGrowthEvent])
@@ -67,11 +73,25 @@ export function GrowthPage() {
     const lastPage = Math.max(0, Math.ceil(count / CAMP_BACKPACK_PAGE_SIZE) - 1)
     setBackpackPage((page) => Math.min(page, lastPage))
   }, [dashboard?.world.inventory.length])
+  useEffect(() => {
+    const count = dashboard?.world.companions.owned.length || 0
+    setCompanionPage((page) => Math.min(page, Math.max(0, Math.ceil(count / CAMP_COMPANION_PAGE_SIZE) - 1)))
+  }, [dashboard?.world.companions.owned.length])
+  useEffect(() => {
+    const companions = dashboard?.world.companions
+    const current = companions?.owned.find((item) => item.id === selectedId) || companions?.active || companions?.owned[0]
+    const lastPage = Math.max(0, Math.ceil((current?.memories.length || 0) / CAMP_MEMORY_PAGE_SIZE) - 1)
+    setMemoryPage((page) => Math.min(page, lastPage))
+  }, [dashboard?.world.companions, selectedId])
   if (!dashboard) return null
   const { companions, inventory } = dashboard.world
+  const companionPageCount = Math.max(1, Math.ceil(companions.owned.length / CAMP_COMPANION_PAGE_SIZE))
+  const visibleCompanions = companions.owned.slice(companionPage * CAMP_COMPANION_PAGE_SIZE, (companionPage + 1) * CAMP_COMPANION_PAGE_SIZE)
   const backpackPageCount = Math.max(1, Math.ceil(inventory.length / CAMP_BACKPACK_PAGE_SIZE))
   const visibleInventory = inventory.slice(backpackPage * CAMP_BACKPACK_PAGE_SIZE, (backpackPage + 1) * CAMP_BACKPACK_PAGE_SIZE)
   const selected = companions.owned.find((item) => item.id === selectedId) || companions.active || companions.owned[0] || null
+  const memoryPageCount = Math.max(1, Math.ceil((selected?.memories.length || 0) / CAMP_MEMORY_PAGE_SIZE))
+  const visibleMemories = selected?.memories.slice(memoryPage * CAMP_MEMORY_PAGE_SIZE, (memoryPage + 1) * CAMP_MEMORY_PAGE_SIZE) || []
   const selectedPortrait = selected ? getCompanionCampPortrait(selected) : null
   const chapter = selected ? bondChapter(selected) : null
   const isChestnut = selected?.species_id === 'hearth_hound'
@@ -125,13 +145,14 @@ export function GrowthPage() {
     if (!itemToUse || usingItem) return
     try {
       setUsingItem(true)
-      const targeted = itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber'
+      const targeted = ['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id)
       if (targeted && !itemTargetId) throw new Error('请先选择一位伙伴')
       const result = targeted
-        ? await window.growthArc.inventory.useTarget(itemToUse.item_id, itemTargetId)
+        ? await window.growthArc.inventory.useTarget(itemToUse.item_id, itemTargetId, itemToUse.item_id === 'rewind_gem' ? itemTargetStage : null)
         : await window.growthArc.inventory.use(itemToUse.item_id)
       notify(result.effect, 'success')
       if (result.growthEvent) setPendingGrowth(result.growthEvent)
+      if (result.formChange) setRewindEvent(result.formChange)
       setItemToUse(null)
       await refresh()
     } catch (error) { notify(friendlyError(error), 'error') } finally { setUsingItem(false) }
@@ -147,12 +168,13 @@ export function GrowthPage() {
       <aside className="camp-v2-dex" aria-label="同行图鉴">
         <div className="camp-v2-section-title"><span>◇</span><div><small>同行图鉴</small><strong>已经相遇</strong></div></div>
         <div className="camp-v2-list">
-          {companions.owned.map((companion) => <button key={companion.id} onClick={() => setSelectedId(companion.id)} className={selected?.id === companion.id ? 'selected' : ''}>
+          {visibleCompanions.map((companion) => <button key={companion.id} onClick={() => { setSelectedId(companion.id); setMemoryPage(0); setCompanionPage(Math.floor(companions.owned.findIndex((item) => item.id === companion.id) / CAMP_COMPANION_PAGE_SIZE)) }} className={selected?.id === companion.id ? 'selected' : ''}>
             <PixelCompanion companion={companion} size="small" />
             <span><strong>{companion.nickname}</strong><small>{companion.stageName}</small></span>
             {companion.is_ill ? <i title="正在休养">休养中</i> : companion.is_active ? <i title="准备与你同行">⌂</i> : null}
           </button>)}
         </div>
+        {companions.owned.length > CAMP_COMPANION_PAGE_SIZE && <nav className="camp-v2-companion-pages" aria-label="同行图鉴翻页"><button disabled={companionPage === 0} onClick={() => setCompanionPage((page) => Math.max(0, page - 1))}>‹ 上一页</button><span><b>{String(companionPage + 1).padStart(2, '0')}</b> / {String(companionPageCount).padStart(2, '0')}</span><button disabled={companionPage >= companionPageCount - 1} onClick={() => setCompanionPage((page) => Math.min(companionPageCount - 1, page + 1))}>下一页 ›</button></nav>}
         <p className="camp-v2-dex-note">尚未相遇的身影，不需要追赶。路走到那里时，自会听见新的脚步声。</p>
       </aside>
 
@@ -167,6 +189,8 @@ export function GrowthPage() {
           <span className="camp-v2-species">{selected.stageName} · {selected.species.kind}</span>
           <div className="camp-v2-name-row"><h2>{selected.nickname}</h2><button className="camp-v2-rename" onClick={openRename} title="给伙伴改名">改名</button></div>
           <p className="camp-v2-stage">{selected.stageName} <span>·</span> 羁绊章节：{chapter.name}</p>
+          {selected.form_lock_mode === 'rewound' && <p className="camp-v2-form-lock">◇ 回溯后的模样会一直留在这里；羁绊仍会继续增加。</p>}
+          {selected.form_lock_mode === 'eternal' && <p className="camp-v2-form-lock">◇ 永恒钻石守住了此刻的形态；羁绊仍会继续增加。</p>}
           {Boolean(selected.is_ill) && <p className="camp-v2-home-mark">✚ 它正在小屋里休养，暂时不会出征或在炉火旁等候。</p>}
           <div className="camp-v2-together"><span>与你同行第 {togetherDays} 天</span><small>{formatDay(selected.met_at)}，这段同行被记在旅途的第一页。</small></div>
           <p className="camp-v2-introduction">{isChestnut ? chestnutIntroduction : isMossSprout ? mossSproutIntroduction : isNightLightCat ? nightLightCatIntroduction : isDuskOwl ? duskOwlIntroduction : selected.species.description}</p>
@@ -210,7 +234,8 @@ export function GrowthPage() {
 
     {selected && <section className="parchment-card camp-v2-memories">
       <header><div><span className="card-sigil">▣</span><div><small>共同记忆</small><h2>你们一起留下的页码</h2></div></div></header>
-      <div className="camp-v2-memory-list">{selected.memories.map((memory, index) => <article key={`${memory.at}-${index}`}><span>{index === 0 ? '✦' : '◇'}</span><p>{memory.text}</p>{memory.at ? <small>{formatDay(memory.at)}</small> : null}</article>)}</div>
+      <div className="camp-v2-memory-list">{visibleMemories.map((memory, index) => <article key={`${memory.at}-${memory.kind}-${index}`}><span>{memory.kind === 'first' ? '✦' : memory.kind === 'eternal' ? '◇' : memory.kind === 'rewind' ? '⌁' : '◇'}</span><p>{memory.text}</p>{memory.at ? <small>{formatDay(memory.at)}</small> : null}</article>)}</div>
+      {selected.memories.length > CAMP_MEMORY_PAGE_SIZE && <nav className="camp-v2-memory-pages" aria-label="共同记忆翻页"><button disabled={memoryPage === 0} onClick={() => setMemoryPage((page) => Math.max(0, page - 1))}>‹ 翻回前页</button><span>第 <b>{memoryPage + 1}</b> / {memoryPageCount} 页 · 共 {selected.memories.length} 页记忆</span><button disabled={memoryPage >= memoryPageCount - 1} onClick={() => setMemoryPage((page) => Math.min(memoryPageCount - 1, page + 1))}>翻到下一页 ›</button></nav>}
     </section>}
 
     <section className="camp-v2-bottom-grid">
@@ -226,7 +251,7 @@ export function GrowthPage() {
       </article>
       <article className="parchment-card backpack-card">
         <header><div><span className="card-sigil">▣</span><div><small>共同背包</small><h2>带回小屋的东西</h2></div></div><span className="soft-count">{inventory.reduce((sum, entry) => sum + Number(entry.quantity), 0)} 件</span></header>
-        <div>{visibleInventory.map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); setItemTargetId(next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || '') }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回的物品会好好收在这里。</p>}</div>
+        <div>{visibleInventory.map((entry) => <CampBackpackItem key={entry.item_id} entry={entry} onRequestUse={(next) => { setItemToUse(next); const defaultTarget = next.item_id === 'herbal_soup' ? companions.owned.find((companion) => companion.is_ill)?.id || '' : selected?.id || ''; setItemTargetId(defaultTarget); const target = companions.owned.find((companion) => companion.id === defaultTarget); setItemTargetStage(Math.max(0, Number(target?.stage || 0) - 1)) }} />)}{inventory.length === 0 && <p className="empty-copy">第一次返航后，带回的物品会好好收在这里。</p>}</div>
         {inventory.length > CAMP_BACKPACK_PAGE_SIZE && <nav className="camp-v2-backpack-pages" aria-label="共同背包翻页"><button disabled={backpackPage === 0} onClick={() => setBackpackPage((page) => Math.max(0, page - 1))}>‹ 上一页</button><span><b>{String(backpackPage + 1).padStart(2, '0')}</b> / {String(backpackPageCount).padStart(2, '0')}</span><button disabled={backpackPage >= backpackPageCount - 1} onClick={() => setBackpackPage((page) => Math.min(backpackPageCount - 1, page + 1))}>下一页 ›</button></nav>}
       </article>
     </section>
@@ -243,9 +268,11 @@ export function GrowthPage() {
     </div>}
     {itemToUse && <Modal title={`使用「${itemToUse.item.name}」`} onClose={() => !usingItem && setItemToUse(null)} className="camp-v2-item-use-modal">
       <div className="modal-body camp-v2-item-use-body"><span><Icon name={itemToUse.item.icon} size={28} /></span><div><strong>{itemToUse.item.name}</strong><p>{getItemLore(itemToUse.item).effectLabel}</p><small>使用后会消耗 1 件。</small></div></div>
-      {(itemToUse.item_id === 'herbal_soup' || itemToUse.item_id === 'honey_amber') && <label className="field-label">交给谁<select value={itemTargetId} onChange={(event) => setItemTargetId(event.target.value)}><option value="">请选择伙伴</option>{companions.owned.filter((companion) => itemToUse.item_id !== 'herbal_soup' || companion.is_ill).map((companion) => <option key={companion.id} value={companion.id}>{companion.nickname}{companion.is_ill ? '（休养中）' : ''}</option>)}</select></label>}
-      <footer className="modal-footer"><button className="button button-ghost" disabled={usingItem} onClick={() => setItemToUse(null)}>暂不使用</button><button className="button button-primary" disabled={usingItem} onClick={() => void useInventoryItem()}>{usingItem ? '正在使用…' : '确认使用'}</button></footer>
+      {['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id) && <label className="field-label">交给谁<select value={itemTargetId} onChange={(event) => { const nextId = event.target.value; setItemTargetId(nextId); const target = companions.owned.find((companion) => companion.id === nextId); setItemTargetStage(Math.max(0, Number(target?.stage || 0) - 1)) }}><option value="">请选择伙伴</option>{companions.owned.filter((companion) => itemToUse.item_id !== 'herbal_soup' || companion.is_ill).map((companion) => <option key={companion.id} value={companion.id}>{companion.nickname}{companion.is_ill ? '（休养中）' : ''}</option>)}</select></label>}
+      {itemToUse.item_id === 'rewind_gem' && (() => { const target = companions.owned.find((companion) => companion.id === itemTargetId); const stages = Array.from({ length: Math.max(0, Number(target?.stage || 0)) }, (_, index) => index); return <label className="field-label">回到哪个形态<select value={itemTargetStage} onChange={(event) => setItemTargetStage(Number(event.target.value))} disabled={!target || stages.length === 0}><option value="">请选择曾经的形态</option>{stages.map((stage) => <option key={stage} value={stage}>{target?.species.stages[stage]}</option>)}</select></label> })()}
+      <footer className="modal-footer"><button className="button button-ghost" disabled={usingItem} onClick={() => setItemToUse(null)}>暂不使用</button><button className="button button-primary" disabled={usingItem || (['herbal_soup', 'honey_amber', 'rewind_gem', 'eternal_diamond'].includes(itemToUse.item_id) && !itemTargetId)} onClick={() => void useInventoryItem()}>{usingItem ? '正在使用…' : '确认使用'}</button></footer>
     </Modal>}
     {pendingGrowth && <CompanionGrowthCeremony event={pendingGrowth} onComplete={completeGrowthCeremony} />}
+    {rewindEvent && <CompanionGrowthCeremony event={rewindEvent} mode="rewind" onComplete={() => setRewindEvent(null)} />}
   </div>
 }

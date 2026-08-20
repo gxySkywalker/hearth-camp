@@ -135,6 +135,9 @@ const LOOT = [
   { id: 'star_glass', name: '星辉玻璃', rarity: 'rare', icon: 'star', description: '无论白天黑夜，里面都像装着一小片星空。' },
   { id: 'silver_bell', name: '旅者银铃', rarity: 'precious', icon: 'bell', description: '只有新朋友靠近时才会响起；铃声会一直留到相遇发生。' },
   { id: 'ancient_tower_page', name: '古塔残页', rarity: 'precious', icon: 'book', description: '残页边缘写着尚未辨认的塔名。' },
+  // 这两件遗存只会由暮色商队带来；它们不进入普通远征掉落池。
+  { id: 'rewind_gem', name: '回溯宝石', rarity: 'precious', icon: 'gem', merchantOnly: true, description: '像封着一段倒流的微光。可让已经长成的伙伴回到曾走过的形态；羁绊不会减少，但此后不再继续进化。' },
+  { id: 'eternal_diamond', name: '永恒钻石', rarity: 'precious', icon: 'gem', merchantOnly: true, description: '象征不变誓言的清澈晶石。交给当前同行伙伴后，它会安住在此刻的模样；羁绊仍会继续累积。' },
   { id: 'herbal_soup', name: '山草药汤', rarity: 'rare', icon: 'herb', description: '在炉火上慢慢熬开的山野药草，带着一点安静的暖意。' },
   { id: 'honey_amber', name: '珍稀蜜色琥珀', rarity: 'precious', icon: 'gem', description: '由十枚蜜色琥珀碎片在炉火中熔成，像封住了一小段温暖日光。' },
 ]
@@ -268,7 +271,7 @@ function rollExpedition({ sessionId, activeSeconds, rarePity = 0, companionPity 
   const common = LOOT.filter((item) => item.rarity === 'common')
   const uncommon = LOOT.filter((item) => item.rarity === 'uncommon')
   const rare = LOOT.filter((item) => item.rarity === 'rare')
-  const precious = LOOT.filter((item) => item.rarity === 'precious')
+  const precious = LOOT.filter((item) => item.rarity === 'precious' && !item.merchantOnly)
   const locationPool = Array.isArray(locations) && locations.length ? locations : LOCATIONS
   const drops = []
   const addDrop = (item, quantity = 1) => {

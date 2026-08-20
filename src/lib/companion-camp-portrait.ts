@@ -1,5 +1,7 @@
 import type { Companion } from '../types'
-import emberDrakeStage0PortraitV2 from '../../assets/art/characters/companions/ember_drake_stage-0_camp_portrait_v2.png'
+import emberDrakeStage0PortraitV3 from '../../assets/art/characters/companions/ember_drake_stage-0_camp_portrait_v3.png'
+import emberDrakeStage1PortraitV3 from '../../assets/art/characters/companions/ember_drake_stage-1_camp_portrait_v3.png'
+import emberDrakeFinalPortraitV3 from '../../assets/art/characters/companions/ember_drake_ember_drake_camp_portrait_v3.png'
 
 const portraits = import.meta.glob<string>('../../assets/art/characters/companions/*_camp_portrait_v1.png', {
   eager: true,
@@ -19,7 +21,11 @@ export function getCompanionCampPortrait(companion: Companion) {
   const form = stage >= 2 && companion.evolution_path
     ? companion.evolution_path
     : `stage-${stage}`
-  if (companion.species_id === 'ember_drake' && form === 'stage-0') return emberDrakeStage0PortraitV2
+  if (companion.species_id === 'ember_drake') {
+    if (form === 'stage-0') return emberDrakeStage0PortraitV3
+    if (form === 'stage-1') return emberDrakeStage1PortraitV3
+    if (form === 'ember_drake') return emberDrakeFinalPortraitV3
+  }
   return portraits[portraitPath(companion.species_id, form)]
     || portraits[portraitPath(companion.species_id, 'stage-0')]
     || null
