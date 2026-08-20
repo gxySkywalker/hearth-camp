@@ -1,6 +1,6 @@
-import emberDrakeWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-0_walk_32_v1.png'
-import emberDrakeGrownWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-1_walk_32_v1.png'
-import emberDrakeFinalWalkAtlas from '../../assets/art/characters/companions/ember_drake_ember_drake_walk_32_v1.png'
+import emberDrakeWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-0_walk_32_v2.png'
+import emberDrakeGrownWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-1_walk_32_v2.png'
+import emberDrakeFinalWalkAtlas from '../../assets/art/characters/companions/ember_drake_ember_drake_walk_32_v2.png'
 import '../ember-drake-sprite.css'
 
 type Direction = 'front' | 'back' | 'left' | 'right'

@@ -162,6 +162,20 @@ function automaticGrowthNickname(row, stage, evolutionPath) {
     : row.nickname
 }
 
+// Bond milestones describe how much a companion has shared with the traveller.
+// A form lock never takes those memories away: it only asks the visual growth
+// chapter to remain at a chosen, already-lived shape.
+function displayStageForCompanion(row) {
+  if (row?.form_lock_mode === 'rewound' || row?.form_lock_mode === 'eternal') {
+    return Math.max(0, Math.min(2, Number(row.stage) || 0))
+  }
+  return companionStage(row?.bond_xp)
+}
+
+function isFormLocked(row) {
+  return row?.form_lock_mode === 'rewound' || row?.form_lock_mode === 'eternal'
+}
+
 function isNightExpeditionTime(timestamp) {
   const hour = new Date(timestamp).getHours()
   return hour >= 18 || hour < 6
@@ -498,6 +512,27 @@ class StudyDatabase {
       }
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '22')")
     }
+    if (version < 23) {
+      // V23: form-lock relics keep a companion's appearance without changing
+      // the bond they have already built. Existing saves begin unlocked.
+      const columns = new Set(this.all('PRAGMA table_info(companions)').map((column) => column.name))
+      if (!columns.has('form_lock_mode')) this.db.run("ALTER TABLE companions ADD COLUMN form_lock_mode TEXT NOT NULL DEFAULT 'none'")
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '23')")
+    }
+    if (version < 24) {
+      // V24: permanent-form relics receive their own memory ledger so a
+      // companion's first promise or return can be revisited later.
+      this.db.exec(`CREATE TABLE IF NOT EXISTS companion_form_events (
+        id TEXT PRIMARY KEY,
+        companion_id TEXT NOT NULL REFERENCES companions(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('rewind', 'eternal')),
+        previous_stage INTEGER NOT NULL,
+        stage INTEGER NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        UNIQUE(companion_id, kind)
+      )`)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '24')")
+    }
   }
 
   migrate() {
@@ -598,6 +633,7 @@ class StudyDatabase {
         bond_xp INTEGER NOT NULL DEFAULT 0,
         stage INTEGER NOT NULL DEFAULT 0,
         evolution_path TEXT NOT NULL DEFAULT '',
+        form_lock_mode TEXT NOT NULL DEFAULT 'none',
         personality_profile_json TEXT NOT NULL DEFAULT '',
         growth_completed_at INTEGER,
         is_active INTEGER NOT NULL DEFAULT 0,
@@ -614,6 +650,15 @@ class StudyDatabase {
         occurred_at INTEGER NOT NULL,
         seen_at INTEGER,
         UNIQUE(companion_id, stage)
+      );
+      CREATE TABLE IF NOT EXISTS companion_form_events (
+        id TEXT PRIMARY KEY,
+        companion_id TEXT NOT NULL REFERENCES companions(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('rewind', 'eternal')),
+        previous_stage INTEGER NOT NULL,
+        stage INTEGER NOT NULL,
+        occurred_at INTEGER NOT NULL,
+        UNIQUE(companion_id, kind)
       );
       CREATE TABLE IF NOT EXISTS inventory (
         item_id TEXT PRIMARY KEY,
@@ -1544,14 +1589,15 @@ class StudyDatabase {
     if (companionId) {
       const current = this.one('SELECT * FROM companions WHERE id = ?', [companionId])
       if (current) {
-        const previousStage = companionStage(current.bond_xp)
+        const previousStage = displayStageForCompanion(current)
         const bondXp = Number(current.bond_xp) + rolled.bondXp
-        const stage = companionStage(bondXp)
-        const growthPath = stage === 2 && !current.evolution_path ? growthPathForCompanion(current.species_id, createdAt) : current.evolution_path
-        const growthCompletedAt = stage === 2 && !current.evolution_path ? createdAt : current.growth_completed_at
+        const locked = isFormLocked(current)
+        const stage = locked ? previousStage : companionStage(bondXp)
+        const growthPath = locked ? (current.evolution_path || '') : (stage === 2 && !current.evolution_path ? growthPathForCompanion(current.species_id, createdAt) : current.evolution_path)
+        const growthCompletedAt = !locked && stage === 2 && !current.evolution_path ? createdAt : current.growth_completed_at
         const nickname = automaticGrowthNickname(current, stage, growthPath)
         this.run('UPDATE companions SET nickname = ?, bond_xp = ?, stage = ?, evolution_path = ?, growth_completed_at = ?, last_adventure_at = ? WHERE id = ?', [nickname, bondXp, stage, growthPath, growthCompletedAt, createdAt, companionId], false)
-        growthEvent = this.createGrowthEvent({ companionId, previousStage, stage, evolutionPath: growthPath, sourceSessionId: sessionId, occurredAt: createdAt })
+        if (!locked) growthEvent = this.createGrowthEvent({ companionId, previousStage, stage, evolutionPath: growthPath, sourceSessionId: sessionId, occurredAt: createdAt })
         activeCompanion = this.getCompanion(companionId)
       }
     }
@@ -1761,7 +1807,7 @@ class StudyDatabase {
   enrichCompanion(row) {
     const species = COMPANION_SPECIES.find((item) => item.id === row.species_id)
     if (!species) return { ...row, species: null, stageName: '未知伙伴', evolutionReady: false }
-    const stage = companionStage(row.bond_xp)
+    const stage = displayStageForCompanion(row)
     const chosenEvolution = stage >= 2 ? species.evolutions.find((item) => item.id === row.evolution_path) : null
     return {
       ...row,
@@ -1769,7 +1815,8 @@ class StudyDatabase {
       species,
       personalityProfile: parsePersonalityProfile(row.personality_profile_json, row.id, row.species_id),
       stageName: chosenEvolution?.name || species.stages[stage],
-      evolutionReady: evolutionReady(row.bond_xp, row.evolution_path),
+      evolutionReady: !isFormLocked(row) && evolutionReady(row.bond_xp, row.evolution_path),
+      form_lock_mode: row.form_lock_mode || 'none',
       nextBondXp: stage === 0 ? 100 : stage === 1 ? 200 : Number(row.bond_xp),
       memories: this.getCompanionMemories(row),
     }
@@ -1779,9 +1826,12 @@ class StudyDatabase {
     const journeys = this.all(`SELECT e.location, e.event_text, e.created_at
       FROM expeditions e
       JOIN focus_sessions s ON s.id = e.session_id
-      WHERE s.companion_id = ? ORDER BY e.created_at DESC LIMIT 3`, [companion.id])
+      WHERE s.companion_id = ? ORDER BY e.created_at ASC`, [companion.id])
     const growthEvents = this.all(`SELECT previous_stage, stage, evolution_path, occurred_at
       FROM companion_growth_events
+      WHERE companion_id = ? ORDER BY occurred_at ASC`, [companion.id])
+    const formEvents = this.all(`SELECT kind, previous_stage, stage, occurred_at
+      FROM companion_form_events
       WHERE companion_id = ? ORDER BY occurred_at ASC`, [companion.id])
     const profile = parsePersonalityProfile(companion.personality_profile_json, companion.id, companion.species_id)
     const species = COMPANION_SPECIES.find((item) => item.id === companion.species_id)
@@ -1793,16 +1843,36 @@ class StudyDatabase {
     const first = companion.species_id === 'hearth_hound'
       ? '抵达边境小镇前，栗子已经在旧路上与你同行。'
       : '你们的相遇，被收进了旅途的第一页。'
-    return [
+    const visitedLocations = new Set()
+    const journeyMemories = journeys.map((journey) => {
+      const firstVisit = !visitedLocations.has(journey.location)
+      visitedLocations.add(journey.location)
+      return {
+        kind: firstVisit ? 'place' : 'journey',
+        text: firstVisit
+          ? `第一次抵达${journey.location}。${journey.event_text}`
+          : `在${journey.location}，${journey.event_text}`,
+        at: journey.created_at,
+      }
+    })
+    const memories = [
       { kind: 'first', text: first, at: companion.met_at },
-      ...journeys.map((journey) => ({ kind: 'journey', text: `在${journey.location}，${journey.event_text}`, at: journey.created_at })),
+      ...journeyMemories,
       ...(journeys.length === 0 ? [{ kind: 'habit', text: `${profile.habit}。这是它留在小屋里的小小习惯。`, at: companion.met_at }] : []),
       ...growthEvents.map((event) => ({
         kind: 'growth',
         text: `在这一天，${stageName(event.previous_stage, '')}的羁绊长成了${stageName(event.stage, event.evolution_path)}。`,
         at: event.occurred_at,
       })),
+      ...formEvents.map((event) => ({
+        kind: event.kind,
+        text: event.kind === 'rewind'
+          ? `在这一天，${stageName(event.previous_stage, '')}回望成了${stageName(event.stage, '')}的模样。羁绊仍被好好留下。`
+          : `在这一天，${stageName(event.stage, companion.evolution_path)}收下永恒钻石，决定安住在此刻的模样。`,
+        at: event.occurred_at,
+      })),
     ]
+    return memories.sort((firstMemory, secondMemory) => Number(firstMemory.at || 0) - Number(secondMemory.at || 0))
   }
 
   createGrowthEvent({ companionId, previousStage, stage, evolutionPath, sourceSessionId, occurredAt }) {
@@ -1872,6 +1942,7 @@ class StudyDatabase {
   evolveCompanion(id) {
     const companion = this.getCompanion(id)
     if (!companion) throw new Error('伙伴不存在')
+    if (isFormLocked(companion)) throw new Error('它已经安住在此刻的形态，不会再继续进化')
     if (!companion.evolutionReady) throw new Error('羁绊尚未达到进化条件')
     const completedAt = Date.now()
     const pathId = growthPathForCompanion(companion.species_id, completedAt)
@@ -1887,31 +1958,33 @@ class StudyDatabase {
     }))
   }
 
-  useItem(itemId, targetCompanionId = null) {
+  useItem(itemId, targetCompanionId = null, targetStage = null) {
     const entry = this.one('SELECT * FROM inventory WHERE item_id = ?', [itemId])
     if (!entry || Number(entry.quantity) <= 0) throw new Error('物品不足')
     const now = Date.now()
     let effect = ''
     let growthEvent = null
+    let formChange = null
     let consumedQuantity = 1
     let unlockedLocation = null
 
     const grantBond = (companion, amount) => {
-      const previousStage = companionStage(companion.bond_xp)
+      const previousStage = displayStageForCompanion(companion)
       const newBond = Number(companion.bond_xp) + amount
-      const stage = companionStage(newBond)
-      const growthPath = stage === 2 && !companion.evolution_path ? growthPathForCompanion(companion.species_id, now) : companion.evolution_path
-      const growthCompletedAt = stage === 2 && !companion.evolution_path ? now : companion.growth_completed_at
+      const locked = isFormLocked(companion)
+      const stage = locked ? previousStage : companionStage(newBond)
+      const growthPath = locked ? (companion.evolution_path || '') : (stage === 2 && !companion.evolution_path ? growthPathForCompanion(companion.species_id, now) : companion.evolution_path)
+      const growthCompletedAt = !locked && stage === 2 && !companion.evolution_path ? now : companion.growth_completed_at
       const nickname = automaticGrowthNickname(companion, stage, growthPath)
       this.run('UPDATE companions SET nickname = ?, bond_xp = ?, stage = ?, evolution_path = ?, growth_completed_at = ? WHERE id = ?', [nickname, newBond, stage, growthPath, growthCompletedAt, companion.id], false)
-      growthEvent = this.createGrowthEvent({
-        companionId: companion.id,
-        previousStage,
-        stage,
-        evolutionPath: growthPath,
-        sourceSessionId: null,
-        occurredAt: now,
-      })
+      if (!locked) growthEvent = this.createGrowthEvent({
+          companionId: companion.id,
+          previousStage,
+          stage,
+          evolutionPath: growthPath,
+          sourceSessionId: null,
+          occurredAt: now,
+        })
     }
 
     if (itemId === 'map_scrap') {
@@ -1935,6 +2008,30 @@ class StudyDatabase {
       if (!companion) throw new Error('请先选择想分享蜜色琥珀的伙伴')
       grantBond(companion, 10)
       effect = `${companion.nickname || '伙伴'}收下了珍稀蜜色琥珀，羁绊 +10。`
+    } else if (itemId === 'rewind_gem') {
+      const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : null
+      if (!companion) throw new Error('请先选择想回望旧日模样的伙伴')
+      const previousStage = displayStageForCompanion(companion)
+      if (previousStage < 1) throw new Error('只有已经走过羁绊成长章节的伙伴，才能使用回溯宝石')
+      if (isFormLocked(companion)) throw new Error('它已经安住在自己的形态里，回溯宝石不会再打扰它')
+      const nextStage = Math.max(0, Math.min(previousStage - 1, Number(targetStage)))
+      if (!Number.isInteger(Number(targetStage)) || nextStage >= previousStage) throw new Error('请选择它曾经走过的形态')
+      const nickname = automaticGrowthNickname(companion, nextStage, '')
+      this.run("UPDATE companions SET nickname = ?, stage = ?, evolution_path = '', growth_completed_at = NULL, form_lock_mode = 'rewound' WHERE id = ?", [nickname, nextStage, companion.id], false)
+      this.run('INSERT OR IGNORE INTO companion_form_events (id, companion_id, kind, previous_stage, stage, occurred_at) VALUES (?, ?, ?, ?, ?, ?)', [crypto.randomUUID(), companion.id, 'rewind', previousStage, nextStage, now], false)
+      const changed = this.getCompanion(companion.id)
+      formChange = { id: crypto.randomUUID(), companion: changed, previous_stage: previousStage, stage: nextStage, evolution_path: '' }
+      effect = `${changed.nickname || '伙伴'}回望了曾经的模样。羁绊仍是 ${changed.bond_xp}，只是从今以后不再继续进化。`
+    } else if (itemId === 'eternal_diamond') {
+      const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : null
+      if (!companion) throw new Error('请先选择当前与你同行的伙伴')
+      if (!companion.is_active) throw new Error('永恒钻石只会回应当前准备与你同行的伙伴')
+      if (isFormLocked(companion)) throw new Error('它已经安住在自己的形态里')
+      const stage = displayStageForCompanion(companion)
+      this.run("UPDATE companions SET stage = ?, form_lock_mode = 'eternal' WHERE id = ?", [stage, companion.id], false)
+      this.run('INSERT OR IGNORE INTO companion_form_events (id, companion_id, kind, previous_stage, stage, occurred_at) VALUES (?, ?, ?, ?, ?, ?)', [crypto.randomUUID(), companion.id, 'eternal', stage, stage, now], false)
+      const changed = this.getCompanion(companion.id)
+      effect = `${changed.nickname || '伙伴'}收下永恒钻石，安住在此刻的模样。羁绊仍会继续累积。`
     } else if (itemId === 'berry_bread') {
       const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : this.one('SELECT * FROM companions WHERE is_active = 1')
       if (!companion || companion.is_ill) throw new Error('请靠近一位正在小屋里的伙伴，再分享这份面包')
@@ -1981,7 +2078,7 @@ class StudyDatabase {
 
     this.run('UPDATE inventory SET quantity = quantity - ?, updated_at = ? WHERE item_id = ?', [consumedQuantity, now, itemId])
     this.save()
-    return { consumed: true, itemId, effect, growthEvent, consumedQuantity, unlockedLocation }
+    return { consumed: true, itemId, effect, growthEvent, formChange, consumedQuantity, unlockedLocation }
   }
 
   getKnowledgeRelics(limit = 8) {

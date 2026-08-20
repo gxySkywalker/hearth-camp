@@ -605,7 +605,7 @@ function registerHandlers() {
   handle('settings:open-bgm-folder', async () => shell.openPath(ensureBgmFolder()))
   handle('ai:generate', ({ type, date }) => generateAiReport(type, date))
   handle('inventory:use', (itemId) => database.useItem(itemId))
-  handle('inventory:use-target', ({ itemId, companionId }) => database.useItem(itemId, companionId))
+  handle('inventory:use-target', ({ itemId, companionId, targetStage }) => database.useItem(itemId, companionId, targetStage))
   handle('hearth:get', () => database.getHearthState())
   handle('hearth:set-lit', (lit) => database.setHearthLit(lit))
   handle('hearth:craft', (recipeId) => database.useHearthRecipe(recipeId))

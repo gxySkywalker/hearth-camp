@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { useApp } from '../context/AppContext'
 import { friendlyError } from '../lib/format'
-import playerDefaultWalk from '../../assets/art/characters/player/player_walk_32x48_v1.png'
-import playerBlueWalk from '../../assets/art/characters/player/player_adventurer_blue_walk_32x48_v1.png'
-import playerOchreWalk from '../../assets/art/characters/player/player_adventurer_ochre_walk_32x48_v1.png'
+import playerDefaultWalk from '../../assets/art/characters/player/player_adventurer_hearth_native_walk_32x48_v2.png'
+import playerBlueWalk from '../../assets/art/characters/player/player_adventurer_blue_native_walk_32x48_v2.png'
+import playerOchreWalk from '../../assets/art/characters/player/player_adventurer_ochre_native_walk_32x48_v2.png'
+import playerSilverWalk from '../../assets/art/characters/player/player_adventurer_silver_native_walk_32x48_v1.png'
 
 const PLAYER_AVATARS = [
   { id: 'traveler_clothes', name: '炉火旅人', note: '最初的行囊与旧路。', art: playerDefaultWalk },
   { id: 'traveler_blue', name: '青蓝旅人', note: '短外套与一条浅灰围巾。', art: playerBlueWalk },
   { id: 'traveler_ochre', name: '金穗旅人', note: '赭黄披肩与旷野的风。', art: playerOchreWalk },
+  { id: 'traveler_silver', name: '酒红旅人', note: '银灰短发与一件酒红斗篷。', art: playerSilverWalk },
 ] as const
 
 const WIDGET_THEMES = [

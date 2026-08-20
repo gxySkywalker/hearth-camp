@@ -69,7 +69,7 @@ contextBridge.exposeInMainWorld('growthArc', {
   },
   inventory: {
     use: (itemId) => invoke('inventory:use', itemId),
-    useTarget: (itemId, companionId) => invoke('inventory:use-target', { itemId, companionId }),
+    useTarget: (itemId, companionId, targetStage = null) => invoke('inventory:use-target', { itemId, companionId, targetStage }),
   },
   hearth: {
     get: () => invoke('hearth:get'),

@@ -545,18 +545,18 @@
       ]
     },
     {
-      "id": "ember-drake-stage-0-camp-portrait-v1",
-      "path": "characters/companions/ember_drake_stage-0_camp_portrait_v1.png",
+      "id": "ember-drake-stage-0-camp-portrait-v3",
+      "path": "characters/companions/ember_drake_stage-0_camp_portrait_v3.png",
       "role": "approved-runtime-camp-portrait",
       "status": "approved-character-design",
       "notes": [
         "小火牙营地肖像；幼龙四足轮廓、收拢翼膜与余烬鳞纹为核心识别点",
-        "深色渐变背景已从边缘连通区域透明化，保留深铜鳞片与暖色角尖"
+        "来自透明原生像素肖像，保留深铜鳞片与暖色角尖"
       ]
     },
     {
-      "id": "ember-drake-stage-0-walk-32-v1",
-      "path": "characters/companions/ember_drake_stage-0_walk_32_v1.png",
+      "id": "ember-drake-stage-0-walk-32-v2",
+      "path": "characters/companions/ember_drake_stage-0_walk_32_v2.png",
       "role": "approved-runtime-sprite-atlas",
       "status": "production-candidate",
       "notes": [
@@ -565,8 +565,8 @@
       ]
     },
     {
-      "id": "ember-drake-stage-1-camp-portrait-v1",
-      "path": "characters/companions/ember_drake_stage-1_camp_portrait_v1.png",
+      "id": "ember-drake-stage-1-camp-portrait-v3",
+      "path": "characters/companions/ember_drake_stage-1_camp_portrait_v3.png",
       "role": "approved-runtime-camp-portrait",
       "status": "approved-character-design",
       "notes": [
@@ -575,8 +575,8 @@
       ]
     },
     {
-      "id": "ember-drake-stage-1-walk-32-v1",
-      "path": "characters/companions/ember_drake_stage-1_walk_32_v1.png",
+      "id": "ember-drake-stage-1-walk-32-v2",
+      "path": "characters/companions/ember_drake_stage-1_walk_32_v2.png",
       "role": "approved-runtime-sprite-atlas",
       "status": "production-candidate",
       "notes": [
@@ -585,8 +585,8 @@
       ]
     },
     {
-      "id": "ember-drake-final-camp-portrait-v1",
-      "path": "characters/companions/ember_drake_ember_drake_camp_portrait_v1.png",
+      "id": "ember-drake-final-camp-portrait-v3",
+      "path": "characters/companions/ember_drake_ember_drake_camp_portrait_v3.png",
       "role": "approved-runtime-camp-portrait",
       "status": "approved-character-design",
       "notes": [
@@ -595,8 +595,8 @@
       ]
     },
     {
-      "id": "ember-drake-final-walk-32-v1",
-      "path": "characters/companions/ember_drake_ember_drake_walk_32_v1.png",
+      "id": "ember-drake-final-walk-32-v2",
+      "path": "characters/companions/ember_drake_ember_drake_walk_32_v2.png",
       "role": "approved-runtime-sprite-atlas",
       "status": "production-candidate",
       "notes": [

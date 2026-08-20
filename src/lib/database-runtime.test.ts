@@ -255,6 +255,26 @@ describe('companion identity', () => {
     expect(database.getPendingGrowthEvent()?.id).toBe(result.growthEvent.id)
   })
 
+  it('lets a precious relic hold a previously grown companion at a remembered form without reducing bond', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-companion-rewind-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    const companion = database.getCompanionCollection().active
+    const now = Date.now()
+    database.run("UPDATE companions SET bond_xp = 200, stage = 2, evolution_path = 'ember_tail' WHERE id = ?", [companion.id])
+    database.run('INSERT INTO inventory (item_id, quantity, first_found_at, updated_at) VALUES (?, ?, ?, ?)', ['rewind_gem', 1, now, now])
+
+    const result = database.useItem('rewind_gem', companion.id, 1)
+    expect(result.formChange).toMatchObject({ previous_stage: 2, stage: 1 })
+    expect(database.getCompanion(companion.id)).toMatchObject({ stage: 1, bond_xp: 200, form_lock_mode: 'rewound', evolutionReady: false })
+    expect(database.getCompanion(companion.id)?.memories.some((memory: { kind: string }) => memory.kind === 'rewind')).toBe(true)
+
+    database.run('INSERT INTO inventory (item_id, quantity, first_found_at, updated_at) VALUES (?, ?, ?, ?)', ['berry_bread', 1, now, now])
+    const bondResult = database.useItem('berry_bread', companion.id)
+    expect(bondResult.growthEvent).toBeNull()
+    expect(database.getCompanion(companion.id)).toMatchObject({ stage: 1, bond_xp: 201, form_lock_mode: 'rewound' })
+  })
+
   it('keeps a traveller-given name while an unrenamed companion takes its grown form name', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'growth-arc-growth-nickname-'))
     tempDirs.push(dir)

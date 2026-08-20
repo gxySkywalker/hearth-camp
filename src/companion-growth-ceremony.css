@@ -22,9 +22,17 @@
 .growth-ceremony-reveal .growth-ceremony-before, .growth-ceremony-complete .growth-ceremony-before { opacity: 0; }
 .growth-ceremony-reveal .growth-ceremony-after { animation: growth-reveal .9s steps(5,end) forwards; }
 .growth-ceremony-complete .growth-ceremony-after { opacity: 1; transform: scale(1.18); }
+.growth-ceremony-rewind { background: radial-gradient(circle at 50% 43%, rgba(98,123,163,.32), rgba(20,22,31,.95) 63%); }
+.growth-ceremony-rewind .growth-ceremony-stage { border-color: #708bab; box-shadow: 0 0 0 4px #1e2938, 0 0 42px rgba(164,205,231,.32); background: linear-gradient(#243342 0 67%, #3e5063 67%); }
+.growth-ceremony-rewind.growth-ceremony-shift .growth-ceremony-before { animation: rewind-old-form .46s steps(1,end) infinite; }
+.growth-ceremony-rewind.growth-ceremony-shift .growth-ceremony-after { animation: rewind-new-form .46s steps(1,end) infinite; }
+.growth-ceremony-rewind.growth-ceremony-reveal .growth-ceremony-after { animation: rewind-reveal .9s steps(5,end) forwards; }
 @keyframes growth-old-form { 0%, 49% { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 17px #fff3c6); } 50%, 100% { opacity: 0; } }
 @keyframes growth-new-form { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 17px #fff3c6); } }
 @keyframes growth-flash { 0%, 60% { opacity: 0; } 61%, 100% { opacity: .82; } }
 @keyframes growth-reveal { from { opacity: 0; filter: brightness(0) invert(1); } to { opacity: 1; filter: none; } }
+@keyframes rewind-old-form { 0%, 49% { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 17px #c8e9ff); } 50%, 100% { opacity: 0; } }
+@keyframes rewind-new-form { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; filter: brightness(0) invert(1) drop-shadow(0 0 17px #c8e9ff); } }
+@keyframes rewind-reveal { from { opacity: 0; filter: brightness(0) invert(1); transform: scale(.86); } to { opacity: 1; filter: none; transform: scale(1.18); } }
 @keyframes growth-star { 0%, 100% { transform: scale(0); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .growth-ceremony * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; } .growth-ceremony-shift .growth-ceremony-before { opacity: 0; }.growth-ceremony-shift .growth-ceremony-after { opacity: 1; filter: none; }.growth-ceremony-shift .growth-ceremony-flash { opacity: 0; } }
