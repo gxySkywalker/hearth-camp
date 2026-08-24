@@ -8,6 +8,7 @@ import { canHandle, setInputContext, getInputContext } from './lib/inputContext'
 import { HomePage } from './pages/HomePage'
 import { CottagePage } from './pages/CottagePage'
 import { PlanPage } from './pages/PlanPage'
+import { NotesPage } from './pages/NotesPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { ReviewPage } from './pages/ReviewPage'
 import { ObservatoryPage } from './pages/ObservatoryPage'
@@ -20,6 +21,7 @@ const NAV: Array<{ id: PageId; label: string; icon: string }> = [
   { id: 'home', label: '炉火小屋', icon: 'home' },
   { id: 'overview', label: '旅程总览', icon: 'book' },
   { id: 'plan', label: '制图桌', icon: 'plan' },
+  { id: 'notes', label: '炉边手记', icon: 'book' },
   { id: 'growth', label: '伙伴营地', icon: 'growth' },
   { id: 'history', label: '冒险日志', icon: 'history' },
   { id: 'observatory', label: '天文台', icon: 'star' },
@@ -36,7 +38,7 @@ interface PageActions {
   poBackFromContent: () => void
   // Observatory
   obsTabIndex: number
-  obsSetTab: (tab: 'daily' | 'weekly' | 'monthly') => void
+  obsSetTab: (tab: 'daily' | 'weekly' | 'monthly' | 'yearly') => void
   obsPrevDate: () => void
   obsNextDate: () => void
 }
@@ -93,8 +95,9 @@ function AppShell() {
   // ── SINGLE global keyboard entry point ────────────────────
   const globalKeyHandler = useCallback((e: KeyboardEvent) => {
     // Never intercept when user is typing in a text field
-    const tag = (e.target as HTMLElement)?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+    const target = e.target as HTMLElement | null
+    const tag = target?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable || target?.closest?.('[contenteditable="true"]')) return
 
     const ctx = getInputContext()
     const ns = navStateRef.current
@@ -263,7 +266,7 @@ function AppShell() {
             break
           case 'Enter':
             e.preventDefault()
-            acts.obsSetTab(ns.obsFocusIndex === 0 ? 'daily' : ns.obsFocusIndex === 1 ? 'weekly' : 'monthly')
+            acts.obsSetTab(ns.obsFocusIndex === 0 ? 'daily' : ns.obsFocusIndex === 1 ? 'weekly' : ns.obsFocusIndex === 2 ? 'monthly' : 'yearly')
             playUISound('select')
             break
           case 'Escape':
@@ -343,6 +346,7 @@ function AppShell() {
       {page === 'home' && <CottagePage onNavigate={setPage} />}
       {page === 'overview' && <HomePage onNavigate={setPage} />}
       {page === 'plan' && <PlanPage />}
+      {page === 'notes' && <NotesPage />}
       {page === 'history' && <HistoryPage />}
       {page === 'review' && (
         <ObservatoryPage navState={navState} dispatch={dispatch} actionsRef={actionsRef} />

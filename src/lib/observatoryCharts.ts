@@ -106,6 +106,37 @@ export function monthlyBarsOption(daily: number[], year: number, month: number, 
   }
 }
 
+export function yearlyBarsOption(monthly: number[], year: number, currentMonth = -1): EChartsCoreOption {
+  const labels = monthly.map((_, index) => `${index + 1}月`)
+  const maxValue = Math.max(1, ...monthly)
+  const axisMax = Math.max(3600, Math.ceil(maxValue / 3600) * 3600)
+  return {
+    ...BASE,
+    grid: { top: 24, right: 22, bottom: 32, left: 68 },
+    xAxis: {
+      type: 'category', data: labels, axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } }, splitLine: { show: false },
+      axisLabel: { color: AXIS_MUTED, fontSize: 10 },
+    },
+    yAxis: {
+      type: 'value', min: 0, max: axisMax, splitNumber: 5,
+      axisTick: { show: false }, axisLine: { show: false },
+      splitLine: { lineStyle: { color: AXIS_LINE } },
+      axisLabel: { color: AXIS_MUTED, fontSize: 9, formatter: (value: number) => value === 0 ? '0' : `${Math.round(value / 3600)}小时` },
+    },
+    series: [{
+      type: 'bar', barMaxWidth: 42, barMinHeight: 2,
+      data: monthly.map((value, index) => ({ value, itemStyle: { color: index + 1 === currentMonth ? STAR_HI : STAR } })),
+      emphasis: { itemStyle: { color: STAR_L4 } }, itemStyle: { borderRadius: 0 },
+    }],
+    tooltip: {
+      trigger: 'item', backgroundColor: CHART_BG, borderColor: BRASS,
+      textStyle: { color: AXIS_TEXT, fontSize: 12 },
+      formatter: (p: any) => Number(p?.value) > 0 ? `${year}年${p.dataIndex + 1}月<br/>汇成${fmtLong(Number(p.value))}` : `${year}年${p.dataIndex + 1}月<br/>尚未留下星轨`,
+    },
+  }
+}
+
 export function heatmapOption(grid: number[][], todayRow: number): EChartsCoreOption {
   const data: [number, number, number][] = []
   for (let day = 0; day < 7; day++) for (let hour = 0; hour < 24; hour++) {

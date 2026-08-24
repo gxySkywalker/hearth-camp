@@ -256,6 +256,7 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
     // a paused draft and must not sit between the player and their next task.
     if (action === 'expedition') return startFocus(dashboard.nextTasks[0]?.id)
     if (action === 'journal') return onNavigate('history')
+    if (action === 'notes') return onNavigate('notes')
     if (action === 'poetry') return void window.growthArc.bard.list().then((items) => { setPoems(items); setInputContext('dialog'); setPoetryOpen(true) })
     if (action === 'inventory') {
       setInputContext('dialog'); return setBackpackOpen(true)

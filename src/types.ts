@@ -1,4 +1,43 @@
-export type PageId = 'home' | 'overview' | 'plan' | 'history' | 'review' | 'growth' | 'settings' | 'observatory' | 'mail'
+export type PageId = 'home' | 'overview' | 'plan' | 'notes' | 'history' | 'review' | 'growth' | 'settings' | 'observatory' | 'mail'
+
+export interface MemoChecklistItem {
+  id: string
+  text: string
+  done: boolean
+}
+
+export type MemoBlockKind = 'text' | 'checklist'
+export type MemoTextStyle = 'small' | 'body' | 'emphasis' | 'heading'
+
+export interface MemoContentBlock {
+  id: string
+  kind: MemoBlockKind
+  text: string
+  style: MemoTextStyle
+  done: boolean
+}
+
+export interface MemoFolder {
+  id: string
+  name: string
+  created_at: number
+  updated_at: number
+}
+
+export interface HearthMemo {
+  id: string
+  folder_id: string | null
+  kind: 'note' | 'checklist'
+  title: string
+  body: string
+  checklist: MemoChecklistItem[]
+  content: MemoContentBlock[]
+  content_html: string
+  pinned: boolean
+  deleted_at: number | null
+  created_at: number
+  updated_at: number
+}
 
 // Re-exported from navState for page convenience
 export type { NavState, NavAction } from './lib/navState'
@@ -414,6 +453,17 @@ export interface GrowthArcApi {
     buy: (sessionId: string, slotIndex: number) => Promise<ExpeditionResult>
   }
   bard: { claim: (sessionId: string) => Promise<any>; list: () => Promise<any[]> }
+  memos: {
+    get: () => Promise<{ folders: MemoFolder[]; notes: HearthMemo[] }>
+    create: (data: { kind?: 'note' | 'checklist'; folderId?: string | null }) => Promise<HearthMemo>
+    update: (id: string, patch: Partial<Pick<HearthMemo, 'kind' | 'title' | 'body' | 'checklist' | 'content' | 'content_html' | 'pinned'>> & { folderId?: string | null }) => Promise<HearthMemo>
+    trash: (id: string) => Promise<HearthMemo>
+    restore: (id: string) => Promise<HearthMemo>
+    deletePermanently: (id: string) => Promise<{ id: string }>
+    createFolder: (name: string) => Promise<MemoFolder>
+    updateFolder: (id: string, name: string) => Promise<MemoFolder>
+    deleteFolder: (id: string) => Promise<{ folders: MemoFolder[]; notes: HearthMemo[] }>
+  }
   history: (limit?: number) => Promise<FocusSession[]>
   review: {
     daily: (date?: string) => Promise<DailyReviewData>
@@ -448,6 +498,7 @@ export interface GrowthArcApi {
     getDaily: (dateOrTimestamp?: number) => Promise<DailyObservatoryData>
     getWeekly: (dateOrTimestamp?: number) => Promise<WeeklyObservatoryData>
     getMonthly: (dateOrTimestamp?: number) => Promise<MonthlyObservatoryData>
+    getYearly: (dateOrTimestamp?: number) => Promise<YearlyObservatoryData>
     getReview: (date: string) => Promise<DailyReviewData>
     saveReview: (data: { date: string; win: string; blocker: string; energy: number | null; tomorrowTask: string }) => Promise<unknown>
   }
@@ -527,6 +578,28 @@ export interface MonthlyObservatoryData {
     completedTaskCount: number
     directionBreakdown: Array<{ id: string; name: string; color: string; seconds: number }>
     longestSessionSeconds: number
+  }
+}
+
+export interface YearlyObservatoryData {
+  period: ObservatoryPeriod
+  stats: {
+    totalActiveSeconds: number
+    monthlyActiveSeconds: number[]
+    activeDays: number
+    activeMonths: number
+    brightestMonth: number
+    brightestMonthSeconds: number
+    longestDaySeconds: number
+    longestSessionSeconds: number
+    previousPeriodTotalSeconds: number
+    sessionCounts: SessionCounts
+    completedTaskCount: number
+    directionBreakdown: Array<{ id: string; name: string; color: string; seconds: number }>
+    newCompanions: number
+    companionGrowths: number
+    poemsReceived: number
+    newLocations: number
   }
 }
 

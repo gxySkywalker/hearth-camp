@@ -7,7 +7,7 @@ export type AppZone = 'sidebar' | 'postoffice' | 'observatory'
 
 export interface NavState {
   zone: AppZone
-  /** Sidebar: which NAV item (0–6) */
+  /** Sidebar: which NAV item (0–7) */
   sidebarIndex: number
   /** PostOffice: which sub-zone */
   poZone: 'categories' | 'letters' | 'content'
@@ -15,7 +15,7 @@ export interface NavState {
   poCatIndex: number
   /** PostOffice: letter list index */
   poLetterIndex: number
-  /** Observatory: 0 = 今日观测, 1 = 本周星图 */
+  /** Observatory: 0 = 今日观测, 1 = 本周星图, 2 = 本月星向, 3 = 年度星历 */
   obsFocusIndex: number
 }
 
@@ -33,7 +33,7 @@ export type NavAction =
   | { type: 'SET_SIDEBAR_INDEX'; index: number }
   | { type: 'SET_OBS_FOCUS'; index: number }
 
-export const SIDEBAR_COUNT = 7
+export const SIDEBAR_COUNT = 8
 
 export function initialNavState(): NavState {
   return {
@@ -90,7 +90,7 @@ function navUp(state: NavState): NavState {
         return { ...state, poLetterIndex: Math.max(0, state.poLetterIndex - 1) }
       return state
     case 'observatory':
-      return { ...state, obsFocusIndex: state.obsFocusIndex === 0 ? 2 : state.obsFocusIndex - 1 }
+      return { ...state, obsFocusIndex: state.obsFocusIndex === 0 ? 3 : state.obsFocusIndex - 1 }
     default:
       return state
   }
@@ -109,7 +109,7 @@ function navDown(state: NavState): NavState {
         return { ...state, poLetterIndex: state.poLetterIndex + 1 }
       return state
     case 'observatory':
-      return { ...state, obsFocusIndex: (state.obsFocusIndex + 1) % 3 }
+      return { ...state, obsFocusIndex: (state.obsFocusIndex + 1) % 4 }
     default:
       return state
   }

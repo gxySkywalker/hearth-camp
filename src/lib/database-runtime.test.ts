@@ -16,6 +16,45 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
+describe('hearth memos', () => {
+  it('keeps notes, checklists, folders and the waste-paper lifecycle local', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-memos-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    const folder = database.createMemoFolder('灵感')
+    const memo = database.createMemo({ kind: 'checklist', folderId: folder.id })
+    const updated = database.updateMemo(memo.id, {
+      title: '出发前',
+      checklist: [{ id: 'first', text: '带上水壶', done: true }],
+      content: [
+        { id: 'intro', kind: 'text', text: '出发前检查', style: 'emphasis', done: false },
+        { id: 'water', kind: 'checklist', text: '带上水壶', style: 'body', done: true },
+      ],
+      content_html: '<p data-size="emphasis">出发前检查</p><ul data-checklist="true"><li data-checked="true">带上水壶</li></ul>',
+      pinned: true,
+    })
+    expect(updated).toMatchObject({ title: '出发前', pinned: true, folder_id: folder.id })
+    expect(updated.checklist).toEqual([{ id: 'first', text: '带上水壶', done: true }])
+    expect(updated.content).toEqual([
+      { id: 'intro', kind: 'text', text: '出发前检查', style: 'emphasis', done: false },
+      { id: 'water', kind: 'checklist', text: '带上水壶', style: 'body', done: true },
+    ])
+    expect(updated.content_html).toContain('data-checklist="true"')
+
+    const trashed = database.trashMemo(memo.id)
+    expect(trashed.deleted_at).toBeTypeOf('number')
+    expect(trashed.pinned).toBe(false)
+    expect(database.restoreMemo(memo.id).deleted_at).toBeNull()
+
+    database.deleteMemoFolder(folder.id)
+    expect(database.getMemoLibrary().notes[0].folder_id).toBeNull()
+    database.trashMemo(memo.id)
+    database.deleteMemoPermanently(memo.id)
+    expect(database.getMemoLibrary().notes).toHaveLength(0)
+    expect(database.getSettings().schema_version).toBe('27')
+  })
+})
+
 describe('expedition loot effects', () => {
   const addInventory = (database: any, itemId: string, quantity = 1) => {
     const now = Date.now()

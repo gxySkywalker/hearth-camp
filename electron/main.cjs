@@ -572,6 +572,15 @@ function registerHandlers() {
   handle('caravan:buy', ({ sessionId, slotIndex }) => database.buyCaravanItem(sessionId, slotIndex))
   handle('bard:claim', (sessionId) => database.claimBardPoem(sessionId))
   handle('bard:list', () => database.getPoetryCollection())
+  handle('memos:get', () => database.getMemoLibrary())
+  handle('memos:create', (data) => database.createMemo(data))
+  handle('memos:update', ({ id, patch }) => database.updateMemo(id, patch))
+  handle('memos:trash', (id) => database.trashMemo(id))
+  handle('memos:restore', (id) => database.restoreMemo(id))
+  handle('memos:delete-permanently', (id) => database.deleteMemoPermanently(id))
+  handle('memo-folders:create', (name) => database.createMemoFolder(name))
+  handle('memo-folders:update', ({ id, name }) => database.updateMemoFolder(id, name))
+  handle('memo-folders:delete', (id) => database.deleteMemoFolder(id))
     handle('companions:get', () => database.getCompanionCollection())
     handle('companions:set-active', (id) => database.setActiveCompanion(id))
     handle('companions:rename', ({ id, nickname }) => database.renameCompanion(id, nickname))
@@ -686,6 +695,62 @@ function registerHandlers() {
         completedTaskCount: stats.completedTaskCount,
         directionBreakdown: stats.directionBreakdown,
         longestSessionSeconds: stats.longestSessionSeconds,
+      },
+    }
+  })
+  handle('observatory:get-yearly', (dateOrTimestamp) => {
+    const d = require('./domain.cjs')
+    const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
+    const year = new Date(now).getFullYear()
+    const periodStart = new Date(year, 0, 1).getTime()
+    const periodEnd = new Date(year + 1, 0, 1).getTime()
+    const period = {
+      periodKey: String(year), periodStart, periodEnd,
+      timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZone || 'local',
+      timezoneOffsetMinutes: new Date(periodStart).getTimezoneOffset(),
+    }
+    const collect = (start, end) => {
+      const monthly = Array(12).fill(0)
+      let activeDays = 0
+      let longestDaySeconds = 0
+      for (let cursor = new Date(start); cursor.getTime() < end; cursor.setDate(cursor.getDate() + 1)) {
+        const dayStart = cursor.getTime()
+        const next = new Date(dayStart); next.setDate(next.getDate() + 1)
+        const seconds = d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: Math.min(next.getTime(), end) })
+          .reduce((sum, value) => sum + value, 0)
+        monthly[cursor.getMonth()] += seconds
+        if (seconds > 0) activeDays += 1
+        longestDaySeconds = Math.max(longestDaySeconds, seconds)
+      }
+      return { monthly, activeDays, longestDaySeconds, total: monthly.reduce((sum, value) => sum + value, 0) }
+    }
+    const current = collect(periodStart, periodEnd)
+    const previous = collect(new Date(year - 1, 0, 1).getTime(), periodStart)
+    const stats = database.getCompletedStats(periodStart, periodEnd)
+    const brightestMonthSeconds = Math.max(0, ...current.monthly)
+    const brightestMonth = brightestMonthSeconds > 0 ? current.monthly.indexOf(brightestMonthSeconds) + 1 : 0
+    const newLocations = database.one(`SELECT COUNT(*) AS count FROM (
+      SELECT location, MIN(created_at) AS first_at FROM expeditions GROUP BY location
+    ) WHERE first_at >= ? AND first_at < ?`, [periodStart, periodEnd])?.count || 0
+    return {
+      period,
+      stats: {
+        totalActiveSeconds: current.total,
+        monthlyActiveSeconds: current.monthly,
+        activeDays: current.activeDays,
+        activeMonths: current.monthly.filter((seconds) => seconds > 0).length,
+        brightestMonth,
+        brightestMonthSeconds,
+        longestDaySeconds: current.longestDaySeconds,
+        longestSessionSeconds: stats.longestSessionSeconds,
+        previousPeriodTotalSeconds: previous.total,
+        sessionCounts: stats.sessionCounts,
+        completedTaskCount: stats.completedTaskCount,
+        directionBreakdown: stats.directionBreakdown,
+        newCompanions: database.one('SELECT COUNT(*) AS count FROM companions WHERE met_at >= ? AND met_at < ?', [periodStart, periodEnd])?.count || 0,
+        companionGrowths: database.one('SELECT COUNT(*) AS count FROM companion_growth_events WHERE occurred_at >= ? AND occurred_at < ?', [periodStart, periodEnd])?.count || 0,
+        poemsReceived: database.one('SELECT COUNT(*) AS count FROM poetry_collection WHERE obtained_at >= ? AND obtained_at < ?', [periodStart, periodEnd])?.count || 0,
+        newLocations: Number(newLocations),
       },
     }
   })

@@ -83,7 +83,7 @@ export function getCottageFloorSoundSurface(position: CottagePosition): 'wood' |
 export type CottagePosition = { x: number; y: number }
 export type CottageDirection = 'north' | 'south' | 'east' | 'west'
 export type CottageCompanionMode = 'follow' | 'stay' | 'wander'
-export type CottageInteractionAction = 'expedition' | 'journal' | 'poetry' | 'inventory' | 'review' | 'map' | 'hearth'
+export type CottageInteractionAction = 'expedition' | 'journal' | 'notes' | 'poetry' | 'inventory' | 'review' | 'map' | 'hearth'
 export type CottageInteraction = {
   action: CottageInteractionAction
   label: string
@@ -94,6 +94,7 @@ export type CottageInteraction = {
 const INTERACTIONS: CottageInteraction[] = [
   { action: 'poetry', label: '翻开吟游诗集', prompt: { x: 39, y: 54 }, zone: { left: 8, right: 70, top: 111, bottom: 150 } },
   { action: 'hearth', label: '照看炉火', prompt: { x: 84, y: 77 }, zone: { left: 48, right: 124, top: 74, bottom: 122 } },
+  { action: 'notes', label: '翻开炉边手记', prompt: { x: 181, y: 78 }, zone: { left: 158, right: 207, top: 106, bottom: 124 } },
   { action: 'journal', label: '翻开冒险日志', prompt: { x: 242, y: 77 }, zone: { left: 208, right: 280, top: 106, bottom: 122 } },
   { action: 'map', label: '查看制图桌上的路线', prompt: { x: 376, y: 68 }, zone: { left: 322, right: 434, top: 106, bottom: 122 } },
   { action: 'inventory', label: '打开宝箱与背包', prompt: { x: 456, y: 86 }, zone: { left: 424, right: 498, top: 116, bottom: 134 } },

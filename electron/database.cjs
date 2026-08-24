@@ -533,6 +533,45 @@ class StudyDatabase {
       )`)
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '24')")
     }
+    if (version < 25) {
+      // V25: 炉边手记是玩家主动书写的私密本地内容。它与远征、
+      // 邮局事实和 AI 上下文完全分离，升级时只增表、不触碰旧数据。
+      this.db.exec(`CREATE TABLE IF NOT EXISTS memo_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS memos (
+        id TEXT PRIMARY KEY,
+        folder_id TEXT REFERENCES memo_folders(id) ON DELETE SET NULL,
+        kind TEXT NOT NULL DEFAULT 'note' CHECK(kind IN ('note', 'checklist')),
+        title TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        checklist_json TEXT NOT NULL DEFAULT '[]',
+        pinned INTEGER NOT NULL DEFAULT 0,
+        deleted_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_memos_folder_updated ON memos(folder_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_memos_deleted_updated ON memos(deleted_at, updated_at DESC);`)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '25')")
+    }
+    if (version < 26) {
+      // V26: 正文与清单不再是互斥的手记类型。一页纸由有序内容块
+      // 组成；旧正文和旧清单仍保留在原列，并在读取时无损转换。
+      const memoColumns = new Set(this.all('PRAGMA table_info(memos)').map((column) => column.name))
+      if (!memoColumns.has('content_json')) this.db.run("ALTER TABLE memos ADD COLUMN content_json TEXT NOT NULL DEFAULT '[]'")
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '26')")
+    }
+    if (version < 27) {
+      // V27: 单一连续编辑面取代彼此隔离的输入框，保留浏览器原生的
+      // 跨段选择、撤销、软换行与列表行为。旧内容块仍用于无损迁移。
+      const memoColumns = new Set(this.all('PRAGMA table_info(memos)').map((column) => column.name))
+      if (!memoColumns.has('content_html')) this.db.run("ALTER TABLE memos ADD COLUMN content_html TEXT NOT NULL DEFAULT ''")
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '27')")
+    }
   }
 
   migrate() {
@@ -685,6 +724,26 @@ class StudyDatabase {
         next_step TEXT NOT NULL DEFAULT '',
         created_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS memo_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS memos (
+        id TEXT PRIMARY KEY,
+        folder_id TEXT REFERENCES memo_folders(id) ON DELETE SET NULL,
+        kind TEXT NOT NULL DEFAULT 'note' CHECK(kind IN ('note', 'checklist')),
+        title TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        checklist_json TEXT NOT NULL DEFAULT '[]',
+        content_json TEXT NOT NULL DEFAULT '[]',
+        content_html TEXT NOT NULL DEFAULT '',
+        pinned INTEGER NOT NULL DEFAULT 0,
+        deleted_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS content_versions (
         namespace TEXT PRIMARY KEY,
         version TEXT NOT NULL,
@@ -775,6 +834,8 @@ class StudyDatabase {
         UNIQUE(session_id, task_id)
       );
       CREATE INDEX IF NOT EXISTS idx_relics_created ON knowledge_relics(created_at);
+      CREATE INDEX IF NOT EXISTS idx_memos_folder_updated ON memos(folder_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_memos_deleted_updated ON memos(deleted_at, updated_at DESC);
     `)
     const linkCols = new Set(this.all('PRAGMA table_info(session_task_links)').map((c) => c.name))
     if (!linkCols.has('selection_order')) this.db.run('ALTER TABLE session_task_links ADD COLUMN selection_order INTEGER NOT NULL DEFAULT 0')
@@ -1130,6 +1191,131 @@ class StudyDatabase {
       goals: this.all('SELECT * FROM goals ORDER BY status, created_at DESC'),
       tasks: this.all('SELECT * FROM tasks ORDER BY CASE WHEN status IN (\'todo\',\'doing\') THEN 0 WHEN status = \'done\' THEN 1 ELSE 2 END, sort_order ASC, created_at ASC, id ASC'),
     }
+  }
+
+  memoFromRow(row) {
+    if (!row) return null
+    let checklist = []
+    try {
+      const parsed = JSON.parse(row.checklist_json || '[]')
+      if (Array.isArray(parsed)) checklist = parsed
+    } catch (_) { /* malformed legacy text becomes an empty checklist */ }
+    let content = []
+    try {
+      const parsed = JSON.parse(row.content_json || '[]')
+      if (Array.isArray(parsed)) content = parsed
+    } catch (_) { /* malformed content falls back to the legacy columns */ }
+    if (!content.length) {
+      if (row.kind === 'checklist' && checklist.length) {
+        content = checklist.map((item) => ({
+          id: String(item.id || crypto.randomUUID()), kind: 'checklist',
+          text: String(item.text || ''), style: 'body', done: Boolean(item.done),
+        }))
+      } else {
+        const paragraphs = String(row.body || '').split(/\r?\n/)
+        content = paragraphs.map((text) => ({ id: crypto.randomUUID(), kind: 'text', text, style: 'body', done: false }))
+      }
+    }
+    return { ...row, pinned: Number(row.pinned) === 1, checklist, content, content_html: String(row.content_html || '') }
+  }
+
+  getMemoLibrary() {
+    return {
+      folders: this.all('SELECT * FROM memo_folders ORDER BY name COLLATE NOCASE, created_at'),
+      notes: this.all('SELECT * FROM memos ORDER BY pinned DESC, updated_at DESC, created_at DESC').map((row) => this.memoFromRow(row)),
+    }
+  }
+
+  createMemoFolder(name) {
+    const clean = String(name || '').trim().slice(0, 40)
+    if (!clean) throw new Error('分类册名称不能为空')
+    if (this.one('SELECT id FROM memo_folders WHERE lower(name) = lower(?)', [clean])) throw new Error('已经有同名的分类册了')
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    this.run('INSERT INTO memo_folders (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)', [id, clean, now, now])
+    return this.one('SELECT * FROM memo_folders WHERE id = ?', [id])
+  }
+
+  updateMemoFolder(id, name) {
+    const folder = this.one('SELECT * FROM memo_folders WHERE id = ?', [id])
+    if (!folder) throw new Error('分类册不存在')
+    const clean = String(name || '').trim().slice(0, 40)
+    if (!clean) throw new Error('分类册名称不能为空')
+    if (this.one('SELECT id FROM memo_folders WHERE lower(name) = lower(?) AND id != ?', [clean, id])) throw new Error('已经有同名的分类册了')
+    this.run('UPDATE memo_folders SET name = ?, updated_at = ? WHERE id = ?', [clean, Date.now(), id])
+    return this.one('SELECT * FROM memo_folders WHERE id = ?', [id])
+  }
+
+  deleteMemoFolder(id) {
+    if (!this.one('SELECT id FROM memo_folders WHERE id = ?', [id])) throw new Error('分类册不存在')
+    this.transaction(() => {
+      this.run('UPDATE memos SET folder_id = NULL, updated_at = ? WHERE folder_id = ?', [Date.now(), id], false)
+      this.run('DELETE FROM memo_folders WHERE id = ?', [id], false)
+    })
+    return this.getMemoLibrary()
+  }
+
+  createMemo(data = {}) {
+    const kind = data.kind === 'checklist' ? 'checklist' : 'note'
+    const folderId = data.folderId && this.one('SELECT id FROM memo_folders WHERE id = ?', [data.folderId]) ? data.folderId : null
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    const firstBlock = JSON.stringify([{ id: crypto.randomUUID(), kind: 'text', text: '', style: 'body', done: false }])
+    this.run('INSERT INTO memos (id, folder_id, kind, title, body, checklist_json, content_json, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)', [
+      id, folderId, kind, '', '', '[]', firstBlock, now, now,
+    ])
+    return this.memoFromRow(this.one('SELECT * FROM memos WHERE id = ?', [id]))
+  }
+
+  updateMemo(id, patch = {}) {
+    const memo = this.one('SELECT * FROM memos WHERE id = ?', [id])
+    if (!memo) throw new Error('这页手记不存在')
+    const folderId = patch.folderId === undefined
+      ? memo.folder_id
+      : (patch.folderId && this.one('SELECT id FROM memo_folders WHERE id = ?', [patch.folderId]) ? patch.folderId : null)
+    const kind = patch.kind === undefined ? memo.kind : (patch.kind === 'checklist' ? 'checklist' : 'note')
+    const title = String(patch.title === undefined ? memo.title : patch.title).slice(0, 120)
+    const body = String(patch.body === undefined ? memo.body : patch.body).slice(0, 100000)
+    const checklist = patch.checklist === undefined ? memo.checklist_json : JSON.stringify(Array.isArray(patch.checklist) ? patch.checklist.slice(0, 300).map((item) => ({
+      id: String(item?.id || crypto.randomUUID()),
+      text: String(item?.text || '').slice(0, 1000),
+      done: Boolean(item?.done),
+    })) : [])
+    const content = patch.content === undefined ? (memo.content_json || '[]') : JSON.stringify(Array.isArray(patch.content) ? patch.content.slice(0, 500).map((block) => ({
+      id: String(block?.id || crypto.randomUUID()),
+      kind: block?.kind === 'checklist' ? 'checklist' : 'text',
+      text: String(block?.text || '').slice(0, 4000),
+      style: ['small', 'body', 'emphasis', 'heading'].includes(block?.style) ? block.style : 'body',
+      done: Boolean(block?.done),
+    })) : [])
+    const contentHtml = String(patch.content_html === undefined ? (memo.content_html || '') : patch.content_html)
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
+      .slice(0, 250000)
+    const pinned = patch.pinned === undefined ? Number(memo.pinned) : (patch.pinned ? 1 : 0)
+    this.run('UPDATE memos SET folder_id = ?, kind = ?, title = ?, body = ?, checklist_json = ?, content_json = ?, content_html = ?, pinned = ?, updated_at = ? WHERE id = ?', [
+      folderId, kind, title, body, checklist, content, contentHtml, pinned, Date.now(), id,
+    ])
+    return this.memoFromRow(this.one('SELECT * FROM memos WHERE id = ?', [id]))
+  }
+
+  trashMemo(id) {
+    if (!this.one('SELECT id FROM memos WHERE id = ?', [id])) throw new Error('这页手记不存在')
+    this.run('UPDATE memos SET pinned = 0, deleted_at = ?, updated_at = ? WHERE id = ?', [Date.now(), Date.now(), id])
+    return this.memoFromRow(this.one('SELECT * FROM memos WHERE id = ?', [id]))
+  }
+
+  restoreMemo(id) {
+    if (!this.one('SELECT id FROM memos WHERE id = ?', [id])) throw new Error('这页手记不存在')
+    this.run('UPDATE memos SET deleted_at = NULL, updated_at = ? WHERE id = ?', [Date.now(), id])
+    return this.memoFromRow(this.one('SELECT * FROM memos WHERE id = ?', [id]))
+  }
+
+  deleteMemoPermanently(id) {
+    const memo = this.one('SELECT * FROM memos WHERE id = ?', [id])
+    if (!memo?.deleted_at) throw new Error('只有旧纸篓里的手记才能永久清理')
+    this.run('DELETE FROM memos WHERE id = ?', [id])
+    return { id }
   }
 
   createArea({ name, color = '#8b9cff', icon = 'book' }) {
