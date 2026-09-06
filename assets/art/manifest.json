@@ -555,6 +555,90 @@
       ]
     },
     {
+      "id": "valley-honey-bear-stage-0-camp-portrait-v1",
+      "path": "characters/companions/valley_honey_bear_stage-0_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["小蜜熊营地肖像；圆耳、暖色额纹、厚实前掌与短尾为核心识别点", "来自用户提供的透明原生像素肖像"]
+    },
+    {
+      "id": "valley-honey-bear-stage-0-walk-32-v1",
+      "path": "characters/companions/valley_honey_bear_stage-0_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["小蜜熊四行四列：front、back、left、right；每行四帧", "统一裁切、脚底基线与最近邻缩放"]
+    },
+    {
+      "id": "valley-honey-bear-stage-1-camp-portrait-v1",
+      "path": "characters/companions/valley_honey_bear_stage-1_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["暖掌熊营地肖像；由 companion.stage=1 自动选择", "成长后的体量与暖色毛纹只表达陪伴关系变化"]
+    },
+    {
+      "id": "valley-honey-bear-stage-1-walk-32-v1",
+      "path": "characters/companions/valley_honey_bear_stage-1_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["暖掌熊四行四列：front、back、left、right；每行四帧", "与初始形态共用脚底基线"]
+    },
+    {
+      "id": "valley-honey-bear-rock-honey-guardian-camp-portrait-v1",
+      "path": "characters/companions/valley_honey_bear_rock_honey_guardian_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["岩蜜守熊唯一最终成长肖像；由 evolution_path=rock_honey_guardian 自动选择", "岩层般背毛表达安稳陪伴，不代表防御或战斗能力"]
+    },
+    {
+      "id": "valley-honey-bear-rock-honey-guardian-walk-32-v1",
+      "path": "characters/companions/valley_honey_bear_rock_honey_guardian_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["岩蜜守熊四行四列：front、back、left、right；每行四帧", "Pixi 小屋按最终成长尺寸显示"]
+    },
+    {
+      "id": "cloudfield-sheep-stage-0-camp-portrait-v1",
+      "path": "characters/companions/cloudfield_sheep_stage-0_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["咩咩营地肖像；卷云额毛、短角、垂耳与蓬松短尾为核心识别点", "来自用户提供的透明原生像素肖像"]
+    },
+    {
+      "id": "cloudfield-sheep-stage-0-walk-32-v1",
+      "path": "characters/companions/cloudfield_sheep_stage-0_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["咩咩四行四列：front、back、left、right；每行四帧", "统一裁切、脚底基线与最近邻缩放"]
+    },
+    {
+      "id": "cloudfield-sheep-stage-1-camp-portrait-v1",
+      "path": "characters/companions/cloudfield_sheep_stage-1_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["咩咩羊营地肖像；由 companion.stage=1 自动选择", "更丰厚的卷毛与羊角只表达共同成长"]
+    },
+    {
+      "id": "cloudfield-sheep-stage-1-walk-32-v1",
+      "path": "characters/companions/cloudfield_sheep_stage-1_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["咩咩羊四行四列：front、back、left、right；每行四帧", "与初始形态共用脚底基线"]
+    },
+    {
+      "id": "cloudfield-sheep-morning-breeze-camp-portrait-v1",
+      "path": "characters/companions/cloudfield_sheep_morning_breeze_camp_portrait_v1.png",
+      "role": "approved-runtime-camp-portrait",
+      "status": "approved-character-design",
+      "notes": ["晨风绵羊唯一最终成长肖像；由 evolution_path=morning_breeze 自动选择", "飘动长绒表达晨风与重新出发，不代表速度或效率能力"]
+    },
+    {
+      "id": "cloudfield-sheep-morning-breeze-walk-32-v1",
+      "path": "characters/companions/cloudfield_sheep_morning_breeze_walk_32_v1.png",
+      "role": "approved-runtime-sprite-atlas",
+      "status": "production-candidate",
+      "notes": ["晨风绵羊四行四列：front、back、left、right；每行四帧", "Pixi 小屋按最终成长尺寸显示"]
+    },
+    {
       "id": "ember-drake-stage-0-walk-32-v2",
       "path": "characters/companions/ember_drake_stage-0_walk_32_v2.png",
       "role": "approved-runtime-sprite-atlas",

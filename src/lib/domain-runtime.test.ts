@@ -516,7 +516,7 @@ describe('birthday system', () => {
 describe('templates are narrative, not data reports', () => {
   const bannedWords = ['小时', '分钟', '完成了', '次数', '统计', '专注', '显示', '报告', '数据',
     '通用学习', '任务', 'paicli']
-  const worldWords = ['邮局', '路标', '旅途', '木匣', '行囊', '地图', '壁炉', '窗']
+  const worldWords = ['邮局', '路标', '旅途', '木匣', '行囊', '地图', '壁炉', '窗', '天文台', '星页', '足迹', '木格']
 
   it('daily template has no report language or internal category names', () => {
     const facts = { totalActiveSeconds: 7200, completedTasks: [{ title: 'A' }], directionBreakdown: [{ name: '编程' }], hasWrittenReview: false, hasOutcome: false, periodStart: Date.now() }
@@ -531,7 +531,7 @@ describe('templates are narrative, not data reports', () => {
   })
 
   it('daily template contains world vocabulary', () => {
-    const facts = { totalActiveSeconds: 7200, completedTasks: [], directionBreakdown: [], hasWrittenReview: false, hasOutcome: false, periodStart: Date.now() }
+    const facts = { stats: { totalActiveSeconds: 7200 }, journey: { completedTasks: [] }, observatory: { hasWrittenReview: false }, period: { periodStart: Date.now() } }
     // At least one world word should appear across all variants
     const all = ['a','b','c','d','e','f','g','h'].map(s => generateDailyTemplate(facts, s)).join(' ')
     const found = worldWords.filter(w => all.includes(w))

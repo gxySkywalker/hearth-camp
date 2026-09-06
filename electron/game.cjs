@@ -115,6 +115,34 @@ const COMPANION_SPECIES = [
       { id: 'night_glass', name: '夜璃', note: '把与你共处的安静，留成一盏稳定的灯。' },
     ],
   },
+  {
+    id: 'valley_honey_bear',
+    name: '山谷蜜熊',
+    kind: '山谷蜜熊',
+    defaultNickname: '小蜜熊',
+    rarity: 'rare',
+    palette: 'honey',
+    finalGrowthMode: 'single',
+    description: '生活在向阳山谷、野蜂林与松果坡之间。它喜欢慢慢收拢散落的暖意，也愿意在疲惫的时候安静陪人坐一会儿。',
+    stages: ['小蜜熊', '暖掌熊', '岩蜜守熊'],
+    evolutions: [
+      { id: 'rock_honey_guardian', name: '岩蜜守熊', note: '把与你一起珍惜过的温暖，留成像山岩一样安稳的陪伴。' },
+    ],
+  },
+  {
+    id: 'cloudfield_sheep',
+    name: '云野绵羊',
+    kind: '云野绵羊',
+    defaultNickname: '咩咩',
+    rarity: 'rare',
+    palette: 'cloud',
+    finalGrowthMode: 'single',
+    description: '生活在晨雾尚未散尽的高野牧坡。它不会替人赶路，只会在风重新吹起时，陪人把今天当作一段新的开始。',
+    stages: ['咩咩', '咩咩羊', '晨风绵羊'],
+    evolutions: [
+      { id: 'morning_breeze', name: '晨风绵羊', note: '把与你一起迎接过的清晨，留成一阵允许重新出发的风。' },
+    ],
+  },
 ]
 
 const LOOT = [
@@ -129,6 +157,8 @@ const LOOT = [
   { id: 'violet_mist_glass', name: '紫雾碎璃', rarity: 'uncommon', icon: 'gem', description: '雾紫色的碎璃映着未熄的窗灯，像一小段安静的夜色。' },
   { id: 'gray_pattern_stone', name: '灰纹石片', rarity: 'uncommon', icon: 'scale', description: '从旧石阶边自然剥落的浅灰石片，雨水已将边缘磨圆。' },
   { id: 'cloud_shadow_grass', name: '云影草穗', rarity: 'uncommon', icon: 'herb', description: '云影经过晒暖草坡时，轻轻压弯又重新抬起的一穗草。' },
+  { id: 'beeswax_pinecone', name: '蜜蜡松果', rarity: 'uncommon', icon: 'gem', description: '沾着淡淡松脂与蜂蜜香气的松果。小蜜熊会用温暖的前掌把它轻轻拢在身边。' },
+  { id: 'old_shepherd_bell_tassel', name: '旧牧铃穗', rarity: 'uncommon', icon: 'bell', description: '从旧牧铃边自然松落的一小束软穗，仍留着清晨风吹过草坡时的轻响。咩咩会认出它。' },
   { id: 'amber_chip', name: '蜜色琥珀碎片', rarity: 'rare', icon: 'gem', description: '靠近炉火时会微微发亮。炉火燃着时，十枚可锻成珍稀蜜色琥珀。' },
   { id: 'moon_compass', name: '月银罗盘', rarity: 'rare', icon: 'compass', description: '指针不朝北方，只朝向仍未发现的宝藏。' },
   { id: 'dragon_scale', name: '古龙鳞片', rarity: 'rare', icon: 'scale', description: '温热而坚硬，来自很久以前的一次蜕鳞。' },

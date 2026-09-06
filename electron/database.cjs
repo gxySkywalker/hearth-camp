@@ -106,6 +106,8 @@ const SPECIES_HABITS = {
   moon_owl: ['喜欢停在书架最高的一层', '喜欢把看见的羽毛放在旧书旁', '喜欢在窗框边听夜风', '喜欢注视桌上的摊开地图', '喜欢在旅人写完天文台札记后停在附近', '喜欢收集掉落的书签和纸角', '喜欢在月光照到地板的位置休息', '喜欢在小屋安静下来后才靠近壁炉'],
   iron_badger: ['喜欢把松动的小石子靠在一起', '喜欢在木箱边安静地坐一会儿', '喜欢用前爪轻敲地板，听石缝里的回声', '喜欢看地图上旧石桥旁的记号', '喜欢把圆石垒成不高的小堆', '喜欢在雨后看看门前的石阶有没有松动', '喜欢待在避风的墙角，把背靠在石面上', '喜欢在旅人收拾行囊时待在不远处'],
   cloud_rabbit: ['喜欢在晒暖的地板上把耳朵摊开', '喜欢盯着窗外云影慢慢移过', '喜欢把干草或布边拨成松软的一小圈', '喜欢在旅行地图的空白边缘停一会儿', '喜欢听风从门缝与屋檐间穿过', '喜欢在行囊收好后，仍坐在旁边不急着出发'],
+  valley_honey_bear: ['喜欢用前掌捧着晒暖的小石头', '喜欢闻松果上留下的淡淡蜜香', '喜欢在炉火旁把前掌烘得暖暖的', '喜欢把圆润的松果拢成一小堆', '喜欢靠着安稳的墙角慢慢坐下', '喜欢在旅人疲惫时留在不远处'],
+  cloudfield_sheep: ['喜欢在清晨的窗边听第一阵风', '喜欢把散开的软布边轻轻拢好', '喜欢在门边停下听远处很轻的铃声', '喜欢趴在柔软的毯子旁边休息', '喜欢看日光一点点爬过地板', '喜欢在新一天开始前安静伸展四蹄'],
 }
 
 // A nickname becomes personal only when the traveller explicitly writes one.
@@ -120,6 +122,8 @@ const LEGACY_DEFAULT_NICKNAMES = {
   moon_owl: ['月塔猫头鹰', '猫头鹰', '圆羽雏鸟', '银羽学士', '月塔贤者', '夜空巡游者', '暮羽子', '咕夜枭', '冥翔鹰鸮'],
   iron_badger: ['铁砧獾', '獾', '灰爪幼獾', '铜锤工匠', '王城铸造师', '山门守卫', '小石獾', '岩甲獾', '铠獾王'],
   cloud_rabbit: ['兔子', '云丘垂耳兔', '云团幼兔', '风铃旅兔', '云丘信使', '风暴疾行者', '小丘', '云丘兔', '风茸旅兔'],
+  valley_honey_bear: ['山谷蜜熊', '小蜜熊', '暖掌熊', '岩蜜守熊'],
+  cloudfield_sheep: ['云野绵羊', '咩咩', '咩咩羊', '晨风绵羊'],
 }
 
 function stageNameForCompanion(speciesId, stage, evolutionPath) {
@@ -571,6 +575,34 @@ class StudyDatabase {
       const memoColumns = new Set(this.all('PRAGMA table_info(memos)').map((column) => column.name))
       if (!memoColumns.has('content_html')) this.db.run("ALTER TABLE memos ADD COLUMN content_html TEXT NOT NULL DEFAULT ''")
       this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '27')")
+    }
+    if (version < 28) {
+      // V28: gifts that become a companion's personal possession live outside
+      // the backpack. One companion may keep only one of each unique keepsake.
+      this.db.exec(`CREATE TABLE IF NOT EXISTS companion_held_items (
+        companion_id TEXT NOT NULL REFERENCES companions(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL,
+        received_at INTEGER NOT NULL,
+        PRIMARY KEY(companion_id, item_id)
+      )`)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '28')")
+    }
+    if (version < 29) {
+      // V29: manually recalled focus is an observatory-only record. It never
+      // becomes an expedition/session, so it cannot create bond, loot or mail facts.
+      this.db.exec(`CREATE TABLE IF NOT EXISTS manual_focus_entries (
+        id TEXT PRIMARY KEY,
+        task_name TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL,
+        active_seconds INTEGER NOT NULL,
+        xp_awarded INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_manual_focus_time ON manual_focus_entries(started_at, ended_at);`)
+      this.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '29')")
     }
   }
 
@@ -2005,6 +2037,10 @@ class StudyDatabase {
       form_lock_mode: row.form_lock_mode || 'none',
       nextBondXp: stage === 0 ? 100 : stage === 1 ? 200 : Number(row.bond_xp),
       memories: this.getCompanionMemories(row),
+      heldItems: this.all('SELECT item_id, received_at FROM companion_held_items WHERE companion_id = ? ORDER BY received_at', [row.id]).map((held) => ({
+        ...held,
+        item: LOOT.find((item) => item.id === held.item_id) || { id: held.item_id, name: '旅途珍藏', rarity: 'precious', icon: 'gem', description: '' },
+      })),
     }
   }
 
@@ -2192,8 +2228,11 @@ class StudyDatabase {
     } else if (itemId === 'honey_amber') {
       const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : this.one('SELECT * FROM companions WHERE is_active = 1')
       if (!companion) throw new Error('请先选择想分享蜜色琥珀的伙伴')
+      const alreadyHeld = this.one('SELECT 1 FROM companion_held_items WHERE companion_id = ? AND item_id = ?', [companion.id, itemId])
+      if (alreadyHeld) throw new Error(`${companion.nickname || '这位伙伴'}已经珍藏着一枚珍稀蜜色琥珀了`)
+      this.run('INSERT INTO companion_held_items (companion_id, item_id, received_at) VALUES (?, ?, ?)', [companion.id, itemId, now], false)
       grantBond(companion, 10)
-      effect = `${companion.nickname || '伙伴'}收下了珍稀蜜色琥珀，羁绊 +10。`
+      effect = `${companion.nickname || '伙伴'}收下并珍藏了这枚珍稀蜜色琥珀，羁绊 +10。`
     } else if (itemId === 'rewind_gem') {
       const companion = targetCompanionId ? this.one('SELECT * FROM companions WHERE id = ?', [targetCompanionId]) : null
       if (!companion) throw new Error('请先选择想回望旧日模样的伙伴')
@@ -2223,7 +2262,7 @@ class StudyDatabase {
       if (!companion || companion.is_ill) throw new Error('请靠近一位正在小屋里的伙伴，再分享这份面包')
       grantBond(companion, 1)
       effect = `${companion.nickname || '伙伴'}慢慢吃完了莓果旅行面包，羁绊 +1。`
-    } else if (['river_stone', 'wind_hill_feather', 'dragon_scale', 'flame_scatter', 'rain_moss_vein', 'violet_mist_glass', 'gray_pattern_stone', 'cloud_shadow_grass'].includes(itemId)) {
+    } else if (['river_stone', 'wind_hill_feather', 'dragon_scale', 'flame_scatter', 'rain_moss_vein', 'violet_mist_glass', 'gray_pattern_stone', 'cloud_shadow_grass', 'beeswax_pinecone', 'old_shepherd_bell_tassel'].includes(itemId)) {
       const companionKeepsakes = {
         river_stone: 'river_otter',
         wind_hill_feather: 'moon_owl',
@@ -2233,6 +2272,8 @@ class StudyDatabase {
         violet_mist_glass: 'glimmer_cat',
         gray_pattern_stone: 'iron_badger',
         cloud_shadow_grass: 'cloud_rabbit',
+        beeswax_pinecone: 'valley_honey_bear',
+        old_shepherd_bell_tassel: 'cloudfield_sheep',
       }
       const speciesId = companionKeepsakes[itemId]
       const companion = this.one('SELECT * FROM companions WHERE species_id = ?', [speciesId])
@@ -2355,6 +2396,68 @@ class StudyDatabase {
       ...levelFromXp(totalXp),
       recent: this.all('SELECT * FROM xp_transactions ORDER BY created_at DESC LIMIT 8'),
     }
+  }
+
+  getManualFocusEntries(start = 0, end = Number.MAX_SAFE_INTEGER) {
+    return this.all('SELECT * FROM manual_focus_entries WHERE started_at < ? AND ended_at > ? ORDER BY started_at DESC', [end, start])
+  }
+
+  getManualFocusHourly(start, end) {
+    const hourly = new Array(24).fill(0)
+    for (const entry of this.getManualFocusEntries(start, end)) {
+      let cursor = Math.max(Number(entry.started_at), start)
+      const stop = Math.min(Number(entry.ended_at), end)
+      while (cursor < stop) {
+        const date = new Date(cursor)
+        const hourEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours() + 1).getTime()
+        const sliceEnd = Math.min(stop, hourEnd)
+        hourly[date.getHours()] += Math.round((sliceEnd - cursor) / 1000)
+        cursor = sliceEnd
+      }
+    }
+    return hourly
+  }
+
+  createManualFocusEntry({ taskName, note = '', startedAt, endedAt }) {
+    const title = String(taskName || '').trim().replace(/\s+/g, ' ')
+    const start = Number(startedAt)
+    const end = Number(endedAt)
+    const now = Date.now()
+    if (!title) throw new Error('请写下这段专注的任务名称')
+    if (Array.from(title).length > 80) throw new Error('任务名称请控制在 80 个字以内')
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('结束时间需要晚于起始时间')
+    if (end > now + 60000) throw new Error('还没有发生的时间无法补记')
+    const activeSeconds = Math.round((end - start) / 1000)
+    if (activeSeconds < 60) throw new Error('至少留下 1 分钟，才能记入星轨')
+    if (activeSeconds > 12 * 3600) throw new Error('一次补记最多 12 小时，请分成几段记录')
+    const overlapsSession = this.one("SELECT 1 FROM focus_sessions WHERE status != 'cancelled' AND started_at < ? AND COALESCE(ended_at, ?) > ? LIMIT 1", [end, now, start])
+    const overlapsManual = this.one('SELECT 1 FROM manual_focus_entries WHERE started_at < ? AND ended_at > ? LIMIT 1', [end, start])
+    if (overlapsSession || overlapsManual) throw new Error('这段时间已经有星轨记录，请检查起止时间')
+    const dayStart = new Date(start); dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+    const awardedToday = Number(this.one('SELECT COALESCE(SUM(xp_awarded), 0) AS total FROM manual_focus_entries WHERE started_at >= ? AND started_at < ?', [dayStart.getTime(), dayEnd.getTime()])?.total || 0)
+    const xpAwarded = Math.min(6, Math.floor(activeSeconds / 1800), Math.max(0, 12 - awardedToday))
+    const id = crypto.randomUUID()
+    const previousLevel = this.getXpSummary().level
+    this.transaction(() => {
+      this.run('INSERT INTO manual_focus_entries (id, task_name, note, started_at, ended_at, active_seconds, xp_awarded, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, title, String(note || '').trim(), start, end, activeSeconds, xpAwarded, now, now], false)
+      if (xpAwarded > 0) this.insertXp('manual_focus', xpAwarded, 'manual_focus', id, `补记星轨：${title}`, false)
+    })
+    const currentLevel = this.getXpSummary().level
+    const levelRewards = this.awardLevelUpRewards(previousLevel, currentLevel)
+    this.save()
+    return { ...this.one('SELECT * FROM manual_focus_entries WHERE id = ?', [id]), levelRewards }
+  }
+
+  deleteManualFocusEntry(id) {
+    const entry = this.one('SELECT * FROM manual_focus_entries WHERE id = ?', [id])
+    if (!entry) throw new Error('这段补记已经不存在')
+    this.transaction(() => {
+      this.run("DELETE FROM xp_transactions WHERE reference_type = 'manual_focus' AND reference_id = ?", [id], false)
+      this.run('DELETE FROM manual_focus_entries WHERE id = ?', [id], false)
+    })
+    this.save()
+    return true
   }
 
   awardLevelUpRewards(previousLevel, currentLevel) {

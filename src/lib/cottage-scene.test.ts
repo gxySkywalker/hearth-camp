@@ -80,7 +80,7 @@ describe('cottage movement', () => {
   })
 
   it('gives every frozen companion species a stable cottage resting place', () => {
-    expect(Object.keys(COTTAGE_RESIDENT_POSITIONS)).toHaveLength(8)
+    expect(Object.keys(COTTAGE_RESIDENT_POSITIONS)).toHaveLength(10)
     expect(getCottageResidentPosition('moon_owl')).toEqual({ x: 292, y: 38 })
     expect(getCottageResidentPosition('unknown')).toEqual({ x: 306, y: 164 })
   })

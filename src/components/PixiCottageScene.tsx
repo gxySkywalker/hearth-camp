@@ -38,6 +38,12 @@ import cloudRabbitFinalWalkAtlas from '../../assets/art/characters/companions/cl
 import emberDrakeWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-0_walk_48_v2.png'
 import emberDrakeGrownWalkAtlas from '../../assets/art/characters/companions/ember_drake_stage-1_walk_48_v2.png'
 import emberDrakeFinalWalkAtlas from '../../assets/art/characters/companions/ember_drake_ember_drake_walk_48_v2.png'
+import honeyBearWalkAtlas from '../../assets/art/characters/companions/valley_honey_bear_stage-0_walk_48_v1.png'
+import honeyBearGrownWalkAtlas from '../../assets/art/characters/companions/valley_honey_bear_stage-1_walk_48_v1.png'
+import honeyBearFinalWalkAtlas from '../../assets/art/characters/companions/valley_honey_bear_rock_honey_guardian_walk_48_v1.png'
+import cloudfieldSheepWalkAtlas from '../../assets/art/characters/companions/cloudfield_sheep_stage-0_walk_48_v1.png'
+import cloudfieldSheepGrownWalkAtlas from '../../assets/art/characters/companions/cloudfield_sheep_stage-1_walk_48_v1.png'
+import cloudfieldSheepFinalWalkAtlas from '../../assets/art/characters/companions/cloudfield_sheep_morning_breeze_walk_48_v1.png'
 import {
   COTTAGE_PLAYER_HEIGHT,
   COTTAGE_PLAYER_WIDTH,
@@ -69,7 +75,7 @@ import '../pixi-cottage-scene.css'
 import '../cottage-scene.css'
 
 const COMPANION_RUNTIME_FRAME_SIZE = 48
-const PRODUCTION_COMPANION_SPECIES = new Set(['hearth_hound', 'moss_fox', 'glimmer_cat', 'river_otter', 'iron_badger', 'moon_owl', 'cloud_rabbit', 'ember_drake'])
+const PRODUCTION_COMPANION_SPECIES = new Set(['hearth_hound', 'moss_fox', 'glimmer_cat', 'river_otter', 'iron_badger', 'moon_owl', 'cloud_rabbit', 'ember_drake', 'valley_honey_bear', 'cloudfield_sheep'])
 
 function atlasForCompanion(companion: Companion | null) {
   if (!companion) return hearthHoundWalkAtlas
@@ -85,6 +91,8 @@ function atlasForCompanion(companion: Companion | null) {
   if (companion.species_id === 'moon_owl') return stage >= 2 && companion.evolution_path === 'dusk_owl' ? moonOwlFinalWalkAtlas : stage >= 1 ? moonOwlGrownWalkAtlas : moonOwlWalkAtlas
   if (companion.species_id === 'cloud_rabbit') return stage >= 2 && companion.evolution_path === 'wind_tuft_rabbit' ? cloudRabbitFinalWalkAtlas : stage >= 1 ? cloudRabbitGrownWalkAtlas : cloudRabbitWalkAtlas
   if (companion.species_id === 'ember_drake') return stage >= 2 && companion.evolution_path === 'ember_drake' ? emberDrakeFinalWalkAtlas : stage >= 1 ? emberDrakeGrownWalkAtlas : emberDrakeWalkAtlas
+  if (companion.species_id === 'valley_honey_bear') return stage >= 2 && companion.evolution_path === 'rock_honey_guardian' ? honeyBearFinalWalkAtlas : stage >= 1 ? honeyBearGrownWalkAtlas : honeyBearWalkAtlas
+  if (companion.species_id === 'cloudfield_sheep') return stage >= 2 && companion.evolution_path === 'morning_breeze' ? cloudfieldSheepFinalWalkAtlas : stage >= 1 ? cloudfieldSheepGrownWalkAtlas : cloudfieldSheepWalkAtlas
   return hearthHoundWalkAtlas
 }
 

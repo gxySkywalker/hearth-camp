@@ -51,7 +51,7 @@ describe('hearth memos', () => {
     database.trashMemo(memo.id)
     database.deleteMemoPermanently(memo.id)
     expect(database.getMemoLibrary().notes).toHaveLength(0)
-    expect(database.getSettings().schema_version).toBe('27')
+    expect(database.getSettings().schema_version).toBe('29')
   })
 })
 
@@ -83,6 +83,10 @@ describe('expedition loot effects', () => {
     database.run('INSERT INTO companions (id, species_id, nickname, personality_profile_json, met_at) VALUES (?, ?, ?, ?, ?)', ['cat-test', 'glimmer_cat', '灯团', '{}', now])
     database.run('INSERT INTO companions (id, species_id, nickname, personality_profile_json, met_at) VALUES (?, ?, ?, ?, ?)', ['badger-test', 'iron_badger', '小石獾', '{}', now])
     database.run('INSERT INTO companions (id, species_id, nickname, personality_profile_json, met_at) VALUES (?, ?, ?, ?, ?)', ['rabbit-test', 'cloud_rabbit', '小丘', '{}', now])
+    database.run('INSERT INTO companions (id, species_id, nickname, personality_profile_json, met_at) VALUES (?, ?, ?, ?, ?)', ['bear-test', 'valley_honey_bear', '小蜜熊', '{}', now])
+    const existingSheep = database.getCompanionCollection().owned.find((item: { species_id: string }) => item.species_id === 'cloudfield_sheep')
+    const sheepId = existingSheep?.id ?? 'sheep-test'
+    if (!existingSheep) database.run('INSERT INTO companions (id, species_id, nickname, personality_profile_json, met_at) VALUES (?, ?, ?, ?, ?)', [sheepId, 'cloudfield_sheep', '咩咩', '{}', now])
     addInventory(database, 'river_stone')
     addInventory(database, 'wind_hill_feather')
     addInventory(database, 'dragon_scale')
@@ -91,6 +95,8 @@ describe('expedition loot effects', () => {
     addInventory(database, 'violet_mist_glass')
     addInventory(database, 'gray_pattern_stone')
     addInventory(database, 'cloud_shadow_grass')
+    addInventory(database, 'beeswax_pinecone')
+    addInventory(database, 'old_shepherd_bell_tassel')
     database.useItem('river_stone')
     database.useItem('wind_hill_feather')
     database.useItem('dragon_scale')
@@ -99,6 +105,8 @@ describe('expedition loot effects', () => {
     database.useItem('violet_mist_glass')
     database.useItem('gray_pattern_stone')
     database.useItem('cloud_shadow_grass')
+    database.useItem('beeswax_pinecone')
+    database.useItem('old_shepherd_bell_tassel')
     expect(database.getCompanion('otter-test').bond_xp).toBe(3)
     expect(database.getCompanion('owl-test').bond_xp).toBe(3)
     expect(database.getCompanion('drake-test').bond_xp).toBe(3)
@@ -107,6 +115,8 @@ describe('expedition loot effects', () => {
     expect(database.getCompanion('cat-test').bond_xp).toBe(3)
     expect(database.getCompanion('badger-test').bond_xp).toBe(3)
     expect(database.getCompanion('rabbit-test').bond_xp).toBe(3)
+    expect(database.getCompanion('bear-test').bond_xp).toBe(3)
+    expect(database.getCompanion(sheepId).bond_xp).toBe(3)
   })
 
   it('stores the night compass window and the one-shot expedition flags', async () => {
@@ -180,6 +190,21 @@ describe('expedition loot effects', () => {
     expect(recovered.bond_xp).toBe(Number(companion.bond_xp) + 5)
   })
 
+  it('lets each companion keep only one precious honey amber', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-held-amber-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    const companion = database.getCompanionCollection().active
+    addInventory(database, 'honey_amber', 2)
+    database.useItem('honey_amber', companion.id)
+    const changed = database.getCompanion(companion.id)
+    expect(changed.bond_xp).toBe(Number(companion.bond_xp) + 10)
+    expect(changed.heldItems).toHaveLength(1)
+    expect(changed.heldItems[0].item.name).toBe('珍稀蜜色琥珀')
+    expect(() => database.useItem('honey_amber', companion.id)).toThrow('已经珍藏着一枚')
+    expect(database.getInventory().find((entry: any) => entry.item_id === 'honey_amber').quantity).toBe(1)
+  })
+
   it('exchanges caravan stock exactly once and charges its fixed copper price', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'growth-arc-caravan-'))
     tempDirs.push(dir)
@@ -193,6 +218,31 @@ describe('expedition loot effects', () => {
     expect(database.getInventory().find((entry: any) => entry.item_id === 'copper_coin')).toBeUndefined()
     expect(database.getInventory().find((entry: any) => entry.item_id === 'amber_chip').quantity).toBe(1)
     expect(() => database.buyCaravanItem('caravan-test', 0)).toThrow('已经换走')
+  })
+})
+
+describe('manual focus recollection', () => {
+  it('adds capped travel XP without creating sessions, bond, loot, or expedition facts', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 8, 5, 22, 0, 0))
+    const dir = mkdtempSync(join(tmpdir(), 'growth-arc-manual-focus-'))
+    tempDirs.push(dir)
+    const database = await new StudyDatabase(dir).init()
+    const companion = database.getCompanionCollection().active
+    const bondBefore = companion.bond_xp
+    const inventoryBefore = database.getInventory()
+    const start = new Date(2026, 8, 5, 9, 0, 0).getTime()
+    const first = database.createManualFocusEntry({ taskName: '图书馆学习', startedAt: start, endedAt: start + 4 * 3600000 })
+    const second = database.createManualFocusEntry({ taskName: '纸上复习', startedAt: start + 5 * 3600000, endedAt: start + 9 * 3600000 })
+    const third = database.createManualFocusEntry({ taskName: '晚间整理', startedAt: start + 10 * 3600000, endedAt: start + 11 * 3600000 })
+    expect([first.xp_awarded, second.xp_awarded, third.xp_awarded]).toEqual([6, 6, 0])
+    expect(database.getXpSummary().totalXp).toBe(12)
+    expect(database.one('SELECT COUNT(*) AS count FROM focus_sessions').count).toBe(0)
+    expect(database.one('SELECT COUNT(*) AS count FROM expeditions').count).toBe(0)
+    expect(database.getCompanion(companion.id).bond_xp).toBe(bondBefore)
+    expect(database.getInventory()).toEqual(inventoryBefore)
+    expect(database.getManualFocusHourly(start, start + 86400000).reduce((sum: number, value: number) => sum + value, 0)).toBe(9 * 3600)
+    expect(() => database.createManualFocusEntry({ taskName: '重叠记录', startedAt: start + 1000, endedAt: start + 3600000 })).toThrow('已经有星轨记录')
   })
 })
 

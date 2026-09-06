@@ -6,9 +6,9 @@ import game from '../../electron/game.cjs'
 const { durationTier, rollExpedition, rollCaravanEncounter, rollBardEncounter, companionStage, evolutionReady, growthPathForCompanion, COMPANION_SPECIES, LOOT } = game
 
 describe('bard poetry collection', () => {
-  it('ships forty complete and uniquely identifiable poems', () => {
-    expect(bardPoems).toHaveLength(40)
-    expect(new Set(bardPoems.map((poem) => poem.id)).size).toBe(40)
+  it('ships sixty complete and uniquely identifiable poems', () => {
+    expect(bardPoems).toHaveLength(60)
+    expect(new Set(bardPoems.map((poem) => poem.id)).size).toBe(60)
     bardPoems.forEach((poem) => {
       expect(poem.text.trim().length).toBeGreaterThan(0)
       expect(poem.source.trim().length).toBeGreaterThan(0)
@@ -39,7 +39,7 @@ describe('expedition rules', () => {
 
   it('has the four loot grades and applies expedition boosts to the correct rolls', () => {
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'common')).toHaveLength(4)
-    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'uncommon')).toHaveLength(7)
+    expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'uncommon')).toHaveLength(9)
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'rare')).toHaveLength(5)
     expect(LOOT.filter((item: { rarity: string }) => item.rarity === 'precious')).toHaveLength(5)
     const boosted = rollExpedition({ sessionId: 'boosted', activeSeconds: 5 * 60, ownedSpeciesIds: ['hearth_hound'], rareBoost: true, nightRareBoost: true, companionBoost: true })
@@ -138,5 +138,31 @@ describe('expedition rules', () => {
       finalGrowthMode: 'single',
     })
     expect(growthPathForCompanion('moon_owl')).toBe('dusk_owl')
+  })
+
+  it('keeps the valley honey bear on its one warm non-utility growth route', () => {
+    const bear = COMPANION_SPECIES.find((species: { id: string }) => species.id === 'valley_honey_bear')
+    expect(bear).toMatchObject({
+      name: '山谷蜜熊',
+      kind: '山谷蜜熊',
+      defaultNickname: '小蜜熊',
+      stages: ['小蜜熊', '暖掌熊', '岩蜜守熊'],
+      finalGrowthMode: 'single',
+    })
+    expect(growthPathForCompanion('valley_honey_bear')).toBe('rock_honey_guardian')
+    expect(LOOT.find((item: { id: string }) => item.id === 'beeswax_pinecone')).toMatchObject({ name: '蜜蜡松果', rarity: 'uncommon' })
+  })
+
+  it('keeps the cloudfield sheep on its one restorative non-utility growth route', () => {
+    const sheep = COMPANION_SPECIES.find((species: { id: string }) => species.id === 'cloudfield_sheep')
+    expect(sheep).toMatchObject({
+      name: '云野绵羊',
+      kind: '云野绵羊',
+      defaultNickname: '咩咩',
+      stages: ['咩咩', '咩咩羊', '晨风绵羊'],
+      finalGrowthMode: 'single',
+    })
+    expect(growthPathForCompanion('cloudfield_sheep')).toBe('morning_breeze')
+    expect(LOOT.find((item: { id: string }) => item.id === 'old_shepherd_bell_tassel')).toMatchObject({ name: '旧牧铃穗', rarity: 'uncommon' })
   })
 })

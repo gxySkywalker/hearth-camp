@@ -48,6 +48,12 @@
 .camp-v2-home-note { display: flex; gap: 8px; width: 100%; margin-top: 12px; padding: 9px 10px; color: #856650; border-top: 1px dashed #d0b38a; border-bottom: 1px dashed #d0b38a; font-size: 11px; line-height: 1.55; }
 .camp-v2-home-note span { color: #b1653b; font-size: 15px; }
 .camp-v2-home-note p { margin: 0; }
+.camp-v2-held-items { width:100%; margin-top:11px; padding:9px 10px; border:1px solid #cfad7c; background:rgba(239,216,174,.48); }
+.camp-v2-held-items > small { display:block; margin-bottom:7px; color:#9a6a48; font-size:9px; letter-spacing:.12em; }
+.camp-v2-held-items > div { display:flex; align-items:center; gap:9px; color:#a55d36; }
+.camp-v2-held-items span, .camp-v2-held-items strong, .camp-v2-held-items span small { display:block; }
+.camp-v2-held-items strong { color:#68422e; font-size:12px; }
+.camp-v2-held-items span small { margin-top:2px; color:#95765d; font-size:9px; }
 .camp-v2-bond { width: 100%; margin-top: auto; padding-top: 21px; }
 .camp-v2-bond > div:first-child { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 12px; }
 .camp-v2-bond strong { color: #875033; font-size: 22px; }

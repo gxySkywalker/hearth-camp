@@ -22,12 +22,16 @@ const COMPANION_DAYLINES: Record<string, [string, string, string]> = {
   moon_owl: ['暮羽子收拢翅膀，听着夜色慢慢落下来。', '暮羽子侧着头，像在听远处还没停下的钟声。', '暮羽子落在高处安静望着书桌，没有催促你开口。'],
   cloud_rabbit: ['小丘把长耳轻轻垂下，在炉火旁歇一会儿。', '小丘偏过耳朵听风，随后慢慢跳到窗边。', '小丘趴在晒暖的地板上，像一小片停住的云影。'],
   ember_drake: ['小火牙把翅膀收得很紧，余烬般的亮点安静闪着。', '小火牙抬头望了望远山的方向，又回到你身边。', '小火牙在窗边停了一会儿，像在看还未抵达的群山。'],
+  valley_honey_bear: ['小蜜熊把前掌靠近炉火，慢慢烘得暖暖的。', '小蜜熊闻了闻松果上淡淡的蜜香，又把它轻轻放回原处。', '小蜜熊靠着墙角坐下，像一块被日光晒暖的小石头。'],
+  cloudfield_sheep: ['咩咩伏在柔软的毯边，听着窗外第一阵风。', '咩咩轻轻抖了抖蓬松的卷毛，像把清晨的雾抖落了一点。', '咩咩在门边停下，侧耳听了一会儿很远的铃声。'],
 }
 
 const COMPANION_KEEPSAKES: Record<string, string> = {
   hearth_hound: 'flame_scatter', moss_fox: 'rain_moss_vein', glimmer_cat: 'violet_mist_glass',
   river_otter: 'river_stone', iron_badger: 'gray_pattern_stone', moon_owl: 'wind_hill_feather',
   cloud_rabbit: 'cloud_shadow_grass', ember_drake: 'dragon_scale',
+  valley_honey_bear: 'beeswax_pinecone',
+  cloudfield_sheep: 'old_shepherd_bell_tassel',
 }
 
 function CottageBackpackItem({ entry, onUse }: { entry: any; onUse: (entry: any) => void }) {
@@ -357,8 +361,8 @@ export function CottagePage({ onNavigate }: { onNavigate: (page: PageId) => void
         <div className="hearth-recipes"><article><span>♨</span><div><strong>山草药汤</strong><small>山野药草束 {inventoryCount('herb_bundle')} / 10</small><p>供正在休养的伙伴饮用，康复并获得羁绊 +5。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('herb_bundle') < 10} onClick={() => void craftAtHearth('herbal_soup')}>熬制</button></article><article><span>◇</span><div><strong>珍稀蜜色琥珀</strong><small>蜜色琥珀碎片 {inventoryCount('amber_chip')} / 10</small><p>送给伙伴后，羁绊 +10。</p></div><button className="button button-primary" disabled={!effectiveHearthLit || hearthBusy || inventoryCount('amber_chip') < 10} onClick={() => void craftAtHearth('honey_amber')}>锻造</button></article></div>
         <footer className="modal-footer"><button className="button button-ghost" onClick={() => closeOverlay(setHearthOpen)}>离开炉边</button>{!isNight && <button className="button button-primary" disabled={hearthBusy} onClick={() => void setFire(!hearthLit)}>{hearthLit ? '熄灭炉火' : '点燃炉火'}</button>}</footer>
       </Modal>}
-      {poetryOpen && <Modal title={`吟游诗集 · ${poems.length} / 40`} onClose={() => closeOverlay(setPoetryOpen)} size="wide" className="poetry-modal">
-        <div className="poetry-book-intro"><span>♪</span><div><small>THE WANDERING VERSES</small><strong>旅途中收到的诗，都在这里慢慢成册。</strong><p>每一页记着相遇的日子，也留着那位吟游诗人当时想送给你的话。</p></div><b>{String(poems.length).padStart(2, '0')}<i>/40</i></b></div>
+      {poetryOpen && <Modal title={`吟游诗集 · ${poems.length} / 60`} onClose={() => closeOverlay(setPoetryOpen)} size="wide" className="poetry-modal">
+        <div className="poetry-book-intro"><span>♪</span><div><small>THE WANDERING VERSES</small><strong>旅途中收到的诗，都在这里慢慢成册。</strong><p>每一页记着相遇的日子，也留着那位吟游诗人当时想送给你的话。</p></div><b>{String(poems.length).padStart(2, '0')}<i>/60</i></b></div>
         <div className="poetry-shelf">{poems.length === 0 ? <div className="poetry-empty"><span>◇</span><strong>诗集还没有写下第一页</strong><p>远征归来时，也许会在路边遇见愿意赠诗的吟游诗人。</p></div> : poems.map((entry, index) => <article key={entry.id}>
           <header><span>第 {String(poems.length - index).padStart(2, '0')} 页</span><time>{new Intl.DateTimeFormat('zh-CN', { year:'numeric', month:'long', day:'numeric' }).format(entry.obtained_at)}</time></header>
           <div className="poetry-verse-mark">“</div>

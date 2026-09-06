@@ -100,6 +100,8 @@ export function GrowthPage() {
   const isDuskOwl = selected?.species_id === 'moon_owl'
   const isCloudRabbit = selected?.species_id === 'cloud_rabbit'
   const isEmberDrake = selected?.species_id === 'ember_drake'
+  const isHoneyBear = selected?.species_id === 'valley_honey_bear'
+  const isCloudfieldSheep = selected?.species_id === 'cloudfield_sheep'
   const progress = selected && chapter ? selected.stage >= 2 ? 100 : Math.min(100, selected.bond_xp / chapter.next * 100) : 0
   const togetherDays = selected ? daysTogether(selected.met_at) : 0
   const growthForms = selected ? [0, 1, 2].map((stage) => ({
@@ -180,7 +182,7 @@ export function GrowthPage() {
 
       {selected && chapter && <article className="camp-v2-profile">
         <div className={`camp-v2-portrait species-${selected.species_id} ${selectedPortrait ? 'has-portrait' : ''}`}>
-          <div className="camp-v2-portrait-copy"><span>{isChestnut ? '最初的同行伙伴' : isMossSprout ? '林缘的同行者' : isNightLightCat ? '夜灯旁的朋友' : isDuskOwl ? '夜色里的同行者' : isCloudRabbit ? '丘陵上的同行者' : isEmberDrake ? '远山的同行者' : '旅途中的朋友'}</span><strong>{isChestnut ? '旧路的铃声，还在炉火旁轻轻响。' : isMossSprout ? '风吹开落叶时，它总会停下来多看一会儿。' : isNightLightCat ? '它的尾灯没有催促什么，只安静地亮在窗边。' : isDuskOwl ? '有些还没说出口的念头，也值得被安静地留在夜色里。' : isCloudRabbit ? '云影慢慢移过草坡时，它也不急着起身。' : isEmberDrake ? '它把收好的翼膜轻轻贴近身侧，看向还没有画进地图的远方。' : '每一次相遇，都有它自己的来处。'}</strong></div>
+          <div className="camp-v2-portrait-copy"><span>{isChestnut ? '最初的同行伙伴' : isMossSprout ? '林缘的同行者' : isNightLightCat ? '夜灯旁的朋友' : isDuskOwl ? '夜色里的同行者' : isCloudRabbit ? '丘陵上的同行者' : isEmberDrake ? '远山的同行者' : isHoneyBear ? '向阳山谷的同行者' : isCloudfieldSheep ? '晨雾高野的同行者' : '旅途中的朋友'}</span><strong>{isChestnut ? '旧路的铃声，还在炉火旁轻轻响。' : isMossSprout ? '风吹开落叶时，它总会停下来多看一会儿。' : isNightLightCat ? '它的尾灯没有催促什么，只安静地亮在窗边。' : isDuskOwl ? '有些还没说出口的念头，也值得被安静地留在夜色里。' : isCloudRabbit ? '云影慢慢移过草坡时，它也不急着起身。' : isEmberDrake ? '它把收好的翼膜轻轻贴近身侧，看向还没有画进地图的远方。' : isHoneyBear ? '它把散落的松果拢在暖掌边，也把一小片安稳留给你。' : isCloudfieldSheep ? '晨风吹动卷毛时，它像在说：今天仍可以重新开始。' : '每一次相遇，都有它自己的来处。'}</strong></div>
           {selectedPortrait ? <img className="companion-camp-portrait" src={selectedPortrait} alt={`${selected.nickname}的营地肖像`} /> : <PixelCompanion companion={selected} />}
           <div className="camp-v2-portrait-floor" />
         </div>
@@ -195,6 +197,7 @@ export function GrowthPage() {
           <div className="camp-v2-together"><span>与你同行第 {togetherDays} 天</span><small>{formatDay(selected.met_at)}，这段同行被记在旅途的第一页。</small></div>
           <p className="camp-v2-introduction">{isChestnut ? chestnutIntroduction : isMossSprout ? mossSproutIntroduction : isNightLightCat ? nightLightCatIntroduction : isDuskOwl ? duskOwlIntroduction : selected.species.description}</p>
           <div className="camp-v2-home-note"><span>⌂</span><p>{selected.personalityProfile.habit}。{isMossSprout ? '在小屋里，它也会安静看着窗边的光影移动。' : isNightLightCat ? '在小屋里，它不必说话，只把尾灯留在离你不远的地方。' : isDuskOwl ? '在小屋里，它把翅膀轻轻收好，停在离夜风不远的地方。' : isCloudRabbit ? '在小屋里，它把耳朵贴在晒暖的地板上，等一阵风穿过门缝。' : isEmberDrake ? '在小屋里，它把翼膜收好，鼻尖的一点暖气很快和屋里的风混在一起。' : '在小屋里，它把这当作一件不必解释的小事。'}</p></div>
+          {selected.heldItems.length > 0 && <div className="camp-v2-held-items"><small>随身珍藏</small>{selected.heldItems.map((held) => <div key={held.item_id}><Icon name={held.item.icon} size={18} /><span><strong>{held.item.name}</strong><small>{formatDay(held.received_at)} 收下 · 一直由它珍藏</small></span></div>)}</div>}
 
           <div className="camp-v2-bond" aria-label={`羁绊 ${selected.bond_xp}`}>
             <div><span>共同走过</span><strong>{selected.bond_xp} <small>{selected.stage >= 2 ? '· 已长成，仍在同行' : `/ ${chapter.next}`}</small></strong></div>

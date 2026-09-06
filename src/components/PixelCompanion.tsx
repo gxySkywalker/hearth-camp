@@ -7,6 +7,8 @@ import { IronBadgerSprite } from './IronBadgerSprite'
 import { DuskOwlSprite } from './DuskOwlSprite'
 import { CloudRabbitSprite } from './CloudRabbitSprite'
 import { EmberDrakeSprite } from './EmberDrakeSprite'
+import { ValleyHoneyBearSprite } from './ValleyHoneyBearSprite'
+import { CloudfieldSheepSprite } from './CloudfieldSheepSprite'
 
 export function PixelCompanion({ companion, size = 'large', sleeping = false }: { companion: Companion | null; size?: 'small' | 'medium' | 'large'; sleeping?: boolean }) {
   const speciesId = companion?.species_id || 'hearth_hound'
@@ -34,6 +36,12 @@ export function PixelCompanion({ companion, size = 'large', sleeping = false }: 
   }
   if (speciesId === 'ember_drake') {
     return <EmberDrakeSprite size={size} sleeping={sleeping} stage={companion?.stage || 0} evolutionPath={companion?.evolution_path || ''} />
+  }
+  if (speciesId === 'valley_honey_bear') {
+    return <ValleyHoneyBearSprite size={size} sleeping={sleeping} stage={companion?.stage || 0} evolutionPath={companion?.evolution_path || ''} />
+  }
+  if (speciesId === 'cloudfield_sheep') {
+    return <CloudfieldSheepSprite size={size} sleeping={sleeping} stage={companion?.stage || 0} evolutionPath={companion?.evolution_path || ''} />
   }
   return <div
     className={`pixel-companion sprite-${speciesId} palette-${palette} sprite-${size} stage-${companion?.stage || 0} ${sleeping ? 'is-sleeping' : ''}`}

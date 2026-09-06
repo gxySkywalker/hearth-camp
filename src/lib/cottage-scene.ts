@@ -17,6 +17,8 @@ export const COTTAGE_RESIDENT_POSITIONS: Record<string, CottagePosition> = {
   moon_owl: { x: 292, y: 38 },
   cloud_rabbit: { x: 154, y: 206 },
   ember_drake: { x: 238, y: 174 },
+  valley_honey_bear: { x: 432, y: 208 },
+  cloudfield_sheep: { x: 78, y: 210 },
 }
 
 export function getCottageResidentPosition(speciesId: string) {
@@ -41,6 +43,8 @@ export function getCottageWanderPoints(companion: { species_id: string; stage?: 
     moon_owl: [{ x: 264, y: 47 }, { x: 294, y: 38 }, { x: 318, y: 60 }],
     cloud_rabbit: [{ x: 132, y: 208 }, { x: 160, y: 216 }, { x: 188, y: 202 }],
     ember_drake: [{ x: 218, y: 180 }, { x: 245, y: 166 }, { x: 270, y: 185 }],
+    valley_honey_bear: [{ x: 408, y: 211 }, { x: 438, y: 201 }, { x: 458, y: 218 }],
+    cloudfield_sheep: [{ x: 62, y: 212 }, { x: 88, y: 202 }, { x: 112, y: 218 }],
   }
   const circuit = paths[companion.species_id] || [home]
   if (stage < 1) return [home, ...circuit]
@@ -51,6 +55,8 @@ export function getCottageWanderPoints(companion: { species_id: string; stage?: 
     hearth_hound: { x: 102, y: 156 }, moss_fox: { x: 210, y: 164 }, glimmer_cat: { x: 306, y: 146 },
     river_otter: { x: 314, y: 160 }, iron_badger: { x: 366, y: 171 }, moon_owl: { x: 332, y: 42 },
     cloud_rabbit: { x: 198, y: 184 }, ember_drake: { x: 278, y: 168 },
+    valley_honey_bear: { x: 396, y: 190 },
+    cloudfield_sheep: { x: 116, y: 192 },
   }
   // Final forms retain the same small circuit but gain one expression of the
   // life they have grown into.  These are positional flavour only; no growth
@@ -66,6 +72,8 @@ export function getCottageWanderPoints(companion: { species_id: string; stage?: 
     moon_owl_dusk_owl: { x: 338, y: 34 },
     cloud_rabbit_wind_tuft_rabbit: { x: 204, y: 176 },
     ember_drake_ember_drake: { x: 282, y: 154 },
+    valley_honey_bear_rock_honey_guardian: { x: 386, y: 180 },
+    cloudfield_sheep_morning_breeze: { x: 124, y: 181 },
   }
   const habitKey = `${companion.species_id}_${companion.evolution_path || ''}`
   return [home, ...circuit, ...(evolved[companion.species_id] ? [evolved[companion.species_id]] : []), ...(stage >= 2 && finalHabit[habitKey] ? [finalHabit[habitKey]] : [])]

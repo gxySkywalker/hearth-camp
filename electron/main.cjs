@@ -618,6 +618,25 @@ function registerHandlers() {
   handle('hearth:get', () => database.getHearthState())
   handle('hearth:set-lit', (lit) => database.setHearthLit(lit))
   handle('hearth:craft', (recipeId) => database.useHearthRecipe(recipeId))
+  handle('observatory:list-manual', ({ start, end } = {}) => database.getManualFocusEntries(Number(start) || 0, Number(end) || Number.MAX_SAFE_INTEGER))
+  handle('observatory:create-manual', (data) => database.createManualFocusEntry(data || {}))
+  handle('observatory:delete-manual', (id) => database.deleteManualFocusEntry(id))
+  const observatoryHourly = (d, period) => {
+    const measured = d.computeDailyHourly(database, period)
+    const recalled = database.getManualFocusHourly(period.periodStart, period.periodEnd)
+    return measured.map((seconds, index) => seconds + recalled[index])
+  }
+  const mergeManualStats = (stats, start, end) => {
+    const manual = database.getManualFocusEntries(start, end)
+    const seconds = manual.reduce((sum, entry) => sum + Math.max(0, Math.min(end, Number(entry.ended_at)) - Math.max(start, Number(entry.started_at))) / 1000, 0)
+    if (!seconds) return stats
+    const existing = stats.directionBreakdown || []
+    return {
+      ...stats,
+      longestSessionSeconds: Math.max(Number(stats.longestSessionSeconds || 0), ...manual.map((entry) => Number(entry.active_seconds || 0))),
+      directionBreakdown: [...existing, { id: 'manual_focus', name: '补记星轨', color: '#b88a4d', source: 'manual', seconds }],
+    }
+  }
   handle('observatory:get-daily', (dateOrTimestamp) => {
     const d = require('./domain.cjs')
     const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
@@ -626,12 +645,14 @@ function registerHandlers() {
     const isToday = d.localDateKey() === period.periodKey
     if (process.env.VITE_DEV_SERVER_URL) { console.log('[obs:get-daily]', { inputTs: dateOrTimestamp, periodKey: period.periodKey, hasActive: !!act }) }
     const cur = isToday && act && act.status !== 'cancelled' ? { id: act.id, content: act.content, activeSeconds: act.active_seconds, status: act.status } : null
-    const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
+    const stats = mergeManualStats(database.getCompletedStats(period.periodStart, period.periodEnd), period.periodStart, period.periodEnd)
     const sessions = database.all(
       "SELECT id, content, active_seconds, ended_at, area_id FROM focus_sessions WHERE status = 'completed' AND active_seconds >= 60 AND ended_at >= ? AND ended_at < ? ORDER BY ended_at DESC",
       [period.periodStart, period.periodEnd],
-    ).map(s => ({ id: s.id, title: s.content, activeSeconds: s.active_seconds, endedAt: s.ended_at, returnKind: d.getReturnKind(s.active_seconds), areaName: '', areaColor: '' }))
-    const hourly = d.computeDailyHourly(database, period)
+    ).map(s => ({ id: s.id, title: s.content, activeSeconds: s.active_seconds, endedAt: s.ended_at, returnKind: d.getReturnKind(s.active_seconds), areaName: '', areaColor: '', source: 'session' }))
+      .concat(database.getManualFocusEntries(period.periodStart, period.periodEnd).map(s => ({ id: s.id, title: s.task_name, activeSeconds: s.active_seconds, endedAt: s.ended_at, returnKind: d.getReturnKind(s.active_seconds), areaName: '补记星轨', areaColor: '#b88a4d', source: 'manual', xpAwarded: s.xp_awarded })))
+      .sort((a, b) => b.endedAt - a.endedAt)
+    const hourly = observatoryHourly(d, period)
     const naturalDayTotal = hourly.reduce((sum, seconds) => sum + seconds, 0)
     const review = database.getDailyReview(period.periodKey).review
     return {
@@ -645,11 +666,21 @@ function registerHandlers() {
     const d = require('./domain.cjs')
     const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
     const period = d.getWeeklyPeriod(now)
-    const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
-    const heatmap = d.computeWeeklyHeatmap(database, period)
+    const stats = mergeManualStats(database.getCompletedStats(period.periodStart, period.periodEnd), period.periodStart, period.periodEnd)
+    const heatmap = d.computeWeeklyHeatmap(database, period).map((hours, dayIndex) => {
+      const dayStart = new Date(period.periodStart); dayStart.setDate(dayStart.getDate() + dayIndex)
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+      const recalled = database.getManualFocusHourly(dayStart.getTime(), dayEnd.getTime())
+      return hours.map((seconds, hour) => seconds + recalled[hour])
+    })
     const dailyActiveSeconds = heatmap.map(day => day.reduce((sum, seconds) => sum + seconds, 0))
     const prev = d.previousWeeklyPeriod(period.periodStart)
-    const previousHeatmap = d.computeWeeklyHeatmap(database, prev)
+    const previousHeatmap = d.computeWeeklyHeatmap(database, prev).map((hours, dayIndex) => {
+      const dayStart = new Date(prev.periodStart); dayStart.setDate(dayStart.getDate() + dayIndex)
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+      const recalled = database.getManualFocusHourly(dayStart.getTime(), dayEnd.getTime())
+      return hours.map((seconds, hour) => seconds + recalled[hour])
+    })
     const previousPeriodTotalSeconds = previousHeatmap.flat().reduce((sum, seconds) => sum + seconds, 0)
     const tasks = database.all(
       "SELECT id, title FROM tasks WHERE status = 'done' AND completed_at >= ? AND completed_at < ? ORDER BY completed_at DESC LIMIT 10",
@@ -662,13 +693,13 @@ function registerHandlers() {
     const d = require('./domain.cjs')
     const now = dateOrTimestamp ? Number(dateOrTimestamp) : Date.now()
     const period = d.getMonthlyPeriod(now)
-    const stats = database.getCompletedStats(period.periodStart, period.periodEnd)
+    const stats = mergeManualStats(database.getCompletedStats(period.periodStart, period.periodEnd), period.periodStart, period.periodEnd)
     const dailyActiveSeconds = []
     for (let cursor = new Date(period.periodStart); cursor.getTime() < period.periodEnd; cursor.setDate(cursor.getDate() + 1)) {
       const dayStart = cursor.getTime()
       const dayEndDate = new Date(dayStart)
       dayEndDate.setDate(dayEndDate.getDate() + 1)
-      const hourly = d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
+      const hourly = observatoryHourly(d, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
       dailyActiveSeconds.push(hourly.reduce((sum, seconds) => sum + seconds, 0))
     }
     const previousCursor = new Date(period.periodStart)
@@ -679,7 +710,7 @@ function registerHandlers() {
       const dayStart = cursor.getTime()
       const dayEndDate = new Date(dayStart)
       dayEndDate.setDate(dayEndDate.getDate() + 1)
-      previousPeriodTotalSeconds += d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
+      previousPeriodTotalSeconds += observatoryHourly(d, { periodStart: dayStart, periodEnd: dayEndDate.getTime() })
         .reduce((sum, seconds) => sum + seconds, 0)
     }
     const totalActiveSeconds = dailyActiveSeconds.reduce((sum, seconds) => sum + seconds, 0)
@@ -716,7 +747,7 @@ function registerHandlers() {
       for (let cursor = new Date(start); cursor.getTime() < end; cursor.setDate(cursor.getDate() + 1)) {
         const dayStart = cursor.getTime()
         const next = new Date(dayStart); next.setDate(next.getDate() + 1)
-        const seconds = d.computeDailyHourly(database, { periodStart: dayStart, periodEnd: Math.min(next.getTime(), end) })
+        const seconds = observatoryHourly(d, { periodStart: dayStart, periodEnd: Math.min(next.getTime(), end) })
           .reduce((sum, value) => sum + value, 0)
         monthly[cursor.getMonth()] += seconds
         if (seconds > 0) activeDays += 1
@@ -726,7 +757,7 @@ function registerHandlers() {
     }
     const current = collect(periodStart, periodEnd)
     const previous = collect(new Date(year - 1, 0, 1).getTime(), periodStart)
-    const stats = database.getCompletedStats(periodStart, periodEnd)
+    const stats = mergeManualStats(database.getCompletedStats(periodStart, periodEnd), periodStart, periodEnd)
     const brightestMonthSeconds = Math.max(0, ...current.monthly)
     const brightestMonth = brightestMonthSeconds > 0 ? current.monthly.indexOf(brightestMonthSeconds) + 1 : 0
     const newLocations = database.one(`SELECT COUNT(*) AS count FROM (

@@ -132,6 +132,7 @@ export interface Companion {
     quirk: string
   }
   memories: Array<{ kind: 'first' | 'journey' | 'place' | 'habit' | 'growth' | 'rewind' | 'eternal'; text: string; at: number }>
+  heldItems: Array<{ item_id: string; received_at: number; item: LootItem }>
   is_active: number
   is_ill: number
   ill_since?: number | null
@@ -499,6 +500,9 @@ export interface GrowthArcApi {
     getWeekly: (dateOrTimestamp?: number) => Promise<WeeklyObservatoryData>
     getMonthly: (dateOrTimestamp?: number) => Promise<MonthlyObservatoryData>
     getYearly: (dateOrTimestamp?: number) => Promise<YearlyObservatoryData>
+    listManual: (start?: number, end?: number) => Promise<ManualFocusEntry[]>
+    createManual: (data: { taskName: string; note?: string; startedAt: number; endedAt: number }) => Promise<ManualFocusEntry & { levelRewards?: unknown[] }>
+    deleteManual: (id: string) => Promise<boolean>
     getReview: (date: string) => Promise<DailyReviewData>
     saveReview: (data: { date: string; win: string; blocker: string; energy: number | null; tomorrowTask: string }) => Promise<unknown>
   }
@@ -579,6 +583,18 @@ export interface MonthlyObservatoryData {
     directionBreakdown: Array<{ id: string; name: string; color: string; seconds: number }>
     longestSessionSeconds: number
   }
+}
+
+export interface ManualFocusEntry {
+  id: string
+  task_name: string
+  note: string
+  started_at: number
+  ended_at: number
+  active_seconds: number
+  xp_awarded: number
+  created_at: number
+  updated_at: number
 }
 
 export interface YearlyObservatoryData {

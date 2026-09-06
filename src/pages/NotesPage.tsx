@@ -336,9 +336,9 @@ export function NotesPage() {
       </div>
     </header>
     <main className="notes-paper">
-      <input className="notes-paper-title" value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} placeholder="手记标题" maxLength={120} />
+      <input className="notes-paper-title" value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} placeholder="手记标题" maxLength={120} spellCheck={false} />
       <div className="notes-paper-meta">创建于 {formatDay(draft.created_at)} · 最近修改 {formatMinute(draft.updated_at)}{draft.folder_id && library.folders.find((folder) => folder.id === draft.folder_id) ? ` · ${library.folders.find((folder) => folder.id === draft.folder_id)?.name}` : ''}</div>
-      <div ref={editorRef} className="notes-rich-editor" contentEditable suppressContentEditableWarning
+      <div ref={editorRef} className="notes-rich-editor" contentEditable suppressContentEditableWarning spellCheck={false}
         data-placeholder="从这里写下第一句话……"
         onFocus={() => document.execCommand('defaultParagraphSeparator', false, 'p')}
         onKeyDown={(event) => {

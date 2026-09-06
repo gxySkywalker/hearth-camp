@@ -7,9 +7,10 @@ const DEV = (import.meta as any).env?.DEV
 import { buildWeeklyObservationSummary, dailySummaryNote } from '../lib/observatoryInsights'
 import { Icon } from '../components/Icon'
 import { ObsChart } from '../components/ObsChart'
+import { Modal } from '../components/Modal'
 import { hourlyOption, weeklyBarsOption, heatmapOption, monthlyBarsOption, yearlyBarsOption } from '../lib/observatoryCharts'
 import { playUISound } from '../lib/audio'
-import type { DailyObservatoryData, WeeklyObservatoryData, MonthlyObservatoryData, YearlyObservatoryData, NavState, NavAction } from '../types'
+import type { DailyObservatoryData, WeeklyObservatoryData, MonthlyObservatoryData, YearlyObservatoryData, ManualFocusEntry, NavState, NavAction } from '../types'
 
 const DAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const ENERGY_LABELS = ['', '较低', '偏低', '平稳', '不错', '很好']
@@ -61,6 +62,47 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
   const reviewLoaded = useRef(false)
   const latestTs = useRef(cursor)
   const latestRequest = useRef(0)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualTask, setManualTask] = useState('')
+  const [manualNote, setManualNote] = useState('')
+  const [manualDate, setManualDate] = useState(() => new Date().toLocaleDateString('sv-SE'))
+  const [manualStart, setManualStart] = useState('09:00')
+  const [manualEnd, setManualEnd] = useState('10:00')
+  const [manualEntries, setManualEntries] = useState<ManualFocusEntry[]>([])
+  const [manualSaving, setManualSaving] = useState(false)
+  const [manualPendingRemoval, setManualPendingRemoval] = useState<ManualFocusEntry | null>(null)
+
+  const openManual = async () => {
+    setManualOpen(true)
+    try { setManualEntries(await window.growthArc.observatory.listManual(Date.now() - 31 * 86400000, Date.now() + 60000)) }
+    catch (e) { notify(friendlyError(e), 'error') }
+  }
+
+  const saveManual = async () => {
+    if (manualSaving) return
+    const startedAt = new Date(`${manualDate}T${manualStart}:00`).getTime()
+    let endedAt = new Date(`${manualDate}T${manualEnd}:00`).getTime()
+    if (endedAt <= startedAt) endedAt += 86400000
+    try {
+      setManualSaving(true)
+      const entry = await window.growthArc.observatory.createManual({ taskName: manualTask, note: manualNote, startedAt, endedAt })
+      setManualEntries((entries) => [entry, ...entries])
+      setManualTask(''); setManualNote('')
+      notify(`这段时光已汇入星图，获得 ${entry.xp_awarded} 点旅途经验。`, 'success')
+      await load(cursor)
+    } catch (e) { notify(friendlyError(e), 'error') }
+    finally { setManualSaving(false) }
+  }
+
+  const removeManual = async (entry: ManualFocusEntry) => {
+    try {
+      await window.growthArc.observatory.deleteManual(entry.id)
+      setManualEntries((entries) => entries.filter((candidate) => candidate.id !== entry.id))
+      setManualPendingRemoval(null)
+      notify('这段补记已从星图中移除。', 'success')
+      await load(cursor)
+    } catch (e) { notify(friendlyError(e), 'error') }
+  }
 
   const load = useCallback(async (ts: number) => {
     const requestId = ++latestRequest.current
@@ -256,6 +298,7 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
             {tab === 'yearly' && yearly && <h1>{new Date(yearly.period.periodStart).getFullYear()} 年度星历</h1>}
           </div>
           <div className="obs-hero-tabs">
+            <button className="obs-manual-open" onClick={() => void openManual()}><Icon name="plus" size={14} /> 补记星轨</button>
             <button
               className={`${tab === 'daily' ? 'active' : ''} ${isActive && navState.obsFocusIndex === 0 ? 'kb-focused' : ''}`}
               onClick={() => { playUISound('select'); setTab('daily'); dispatch({ type: 'SET_OBS_FOCUS', index: 0 }) }}
@@ -424,6 +467,31 @@ export function ObservatoryPage({ obsNavTarget, onObsConsumed, navState, dispatc
       </section>
       <div className="obs-herald"><span className="obs-herald-icon">✦</span><span>小天使会在夜深后整理今天的星页</span></div>
     </>}
+
+    {manualOpen && <Modal title="补记星轨" onClose={() => !manualSaving && setManualOpen(false)} className="obs-manual-modal">
+      <div className="obs-manual-body">
+        <div className="obs-manual-intro"><span>✦</span><div><strong>把遗漏的时光重新连成星轨</strong><p className="obs-manual-lead">记录离开电脑后真实投入的专注。它会进入天文台与旅途经验，但不会触发伙伴羁绊、远征或来信。</p></div></div>
+        <div className="obs-manual-fields">
+          <label className="field-label obs-manual-task"><span>这段时间在做什么</span><input value={manualTask} onChange={(event) => setManualTask(event.target.value)} maxLength={80} placeholder="例如：在图书馆复习线性代数" /></label>
+          <div className="obs-manual-timeband">
+            <label className="field-label"><span>日期</span><input type="date" value={manualDate} max={new Date().toLocaleDateString('sv-SE')} onChange={(event) => setManualDate(event.target.value)} /></label>
+            <i aria-hidden="true">从</i>
+            <label className="field-label"><span>起始</span><input type="time" value={manualStart} onChange={(event) => setManualStart(event.target.value)} /></label>
+            <i aria-hidden="true">至</i>
+            <label className="field-label"><span>结束</span><input type="time" value={manualEnd} onChange={(event) => setManualEnd(event.target.value)} /></label>
+          </div>
+          <label className="field-label obs-manual-note"><span>旅途札记 <small>可选</small></span><textarea value={manualNote} onChange={(event) => setManualNote(event.target.value)} maxLength={240} placeholder="写下完成了什么，或此刻想记住的感受……" /></label>
+        </div>
+        <div className="obs-manual-rule"><strong>旅途经验</strong><span>每满 30 分钟 +1</span><i /> <span>单次最多 6 点</span><i /> <span>每日最多 12 点</span></div>
+        <footer className="modal-footer"><button className="button button-ghost" onClick={() => setManualOpen(false)} disabled={manualSaving}>稍后再记</button><button className="button button-primary" onClick={() => void saveManual()} disabled={manualSaving}>{manualSaving ? '正在写入…' : '写入星图'}</button></footer>
+        {manualEntries.length > 0 && <section className="obs-manual-history"><h3><span>近 31 天的补记</span><small>{manualEntries.length} 段星轨</small></h3>{manualEntries.map((entry) => <article key={entry.id}><div><strong>{entry.task_name}</strong><small>{new Date(entry.started_at).toLocaleString('zh-CN', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' })} — {new Date(entry.ended_at).toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' })} · {formatDuration(entry.active_seconds)} · +{entry.xp_awarded} XP</small></div><button className="text-button" onClick={() => setManualPendingRemoval(entry)}>移除</button></article>)}</section>}
+      </div>
+    </Modal>}
+
+    {manualPendingRemoval && <Modal title="移除这段星轨？" onClose={() => setManualPendingRemoval(null)} className="obs-manual-confirm">
+      <div className="obs-manual-confirm-body"><span>◇</span><div><strong>{manualPendingRemoval.task_name}</strong><p>移除后，这段时光将不再计入天文台，获得的 {manualPendingRemoval.xp_awarded} 点旅途经验也会一并收回。</p></div></div>
+      <footer className="modal-footer"><button className="button button-ghost" onClick={() => setManualPendingRemoval(null)}>保留星轨</button><button className="button button-primary" onClick={() => void removeManual(manualPendingRemoval)}>确认移除</button></footer>
+    </Modal>}
 
     {/* ── Weekly view ────────────────────────────────────── */}
     {tab === 'weekly' && weekly && <>

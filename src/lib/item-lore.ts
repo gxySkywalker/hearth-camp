@@ -20,6 +20,8 @@ const LORE: Record<string, ItemLore> = {
   violet_mist_glass: { effectLabel: '灯团及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
   gray_pattern_stone:{ effectLabel: '小石獾及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
   cloud_shadow_grass:{ effectLabel: '小丘及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
+  beeswax_pinecone:  { effectLabel: '小蜜熊及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
+  old_shepherd_bell_tassel: { effectLabel: '咩咩及其成长形态羁绊 +3', consumesItem: true, xpAwarded: null },
   amber_chip:        { effectLabel: '炉火燃着时，10 枚可锻成 1 枚珍稀蜜色琥珀', consumesItem: false, xpAwarded: null },
   honey_amber:       { effectLabel: '送给一位伙伴：羁绊 +10', consumesItem: true, xpAwarded: null },
   moon_compass:      { effectLabel: '夜晚使用：至次日 06:00，稀有发现概率 +3%', consumesItem: true, xpAwarded: null },

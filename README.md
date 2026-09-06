@@ -24,7 +24,7 @@
   <a href="#参与开发与反馈">参与开发与反馈</a>
 </p>
 
-> 炉火营地 v0.8.7 目前处于 Windows 公开测试阶段。项目由独立开发者持续迭代，欢迎带着真实体验、截图和建议回来。
+> 炉火营地 v0.8.8 目前处于 Windows 公开测试阶段。项目由独立开发者持续迭代，欢迎带着真实体验、截图和建议回来。
 
 ## 快速了解
 
@@ -39,11 +39,11 @@
 <table>
   <tr>
     <td width="50%"><img src="docs/images/readme/cottage.png" alt="炉火小屋" /></td>
-    <td width="50%"><img src="docs/images/readme/companions.png" alt="八位同行伙伴" /></td>
+    <td width="50%"><img src="docs/images/readme/companions.png" alt="十位同行伙伴" /></td>
   </tr>
   <tr>
     <td><strong>炉火小屋</strong><br />旅途尽头的家：点燃炉火、整理背包、翻开诗集，让伙伴们在屋里各自生活。</td>
-    <td><strong>八位同行伙伴</strong><br />固定生态位、成长阶段与羁绊记忆都被认真保留；伙伴表达关系，不承担效率计算。</td>
+    <td><strong>十位同行伙伴</strong><br />固定生态位、成长阶段与羁绊记忆都被认真保留；伙伴表达关系，不承担效率计算。</td>
   </tr>
   <tr>
     <td><img src="docs/images/readme/expedition.png" alt="制图桌与远征入口" /></td>
@@ -86,7 +86,7 @@
 
 ### 伙伴会陪你生活
 
-- 八位伙伴拥有冻结的生态位、性格、生活习惯、成长规则与羁绊阈值。
+- 十位伙伴拥有明确的生态位、性格、生活习惯、成长规则与羁绊阈值；新加入山谷蜜熊与云野绵羊。
 - 伙伴可以同行、留在原地或在小屋里自由活动；每位伙伴都有自己的对话、纪念物与进化链。
 - 伙伴营地会按页整理同行者与共同记忆；相遇、抵达、成长与形态抉择都能被慢慢翻回来看。
 - 羁绊成长表达关系变化，而不是把伙伴做成数值或效率工具。
@@ -115,7 +115,7 @@
 ### Windows 10 / 11（64 位）
 
 1. 前往 [最新 Release](https://github.com/gxySkywalker/hearth-camp/releases/latest)。
-2. 下载 `Hearth-Camp-Setup-0.8.7.exe`。
+2. 下载 `Hearth-Camp-Setup-0.8.8.exe`。
 3. 双击安装并按向导完成；安装后从开始菜单或桌面启动「炉火营地」。
 
 安装包目前未进行商业代码签名。如果 Windows SmartScreen 提示来源，请确认文件来自本仓库 Release 页面，并核对发布页中的 SHA-256。覆盖升级不会清空已有存档。
@@ -139,7 +139,7 @@ npm run dist   # Windows NSIS 安装包
 
 欢迎通过 [Issues](https://github.com/gxySkywalker/hearth-camp/issues) 提交问题、体验感受或截图，尤其欢迎反馈安装与升级、远征结算、伙伴行为、小屋交互、天使邮局、性能与可访问性。
 
-如果你希望贡献代码，请先阅读交接文档中的设计红线：八位伙伴、成长规则、世界状态边界与暂停的小镇原型均不可擅自重构或重新接入。
+如果你希望贡献代码，请先阅读交接文档中的设计红线：既有伙伴、成长规则、世界状态边界与暂停的小镇原型均不可擅自重构或重新接入。
 
 ## 路线图
 
